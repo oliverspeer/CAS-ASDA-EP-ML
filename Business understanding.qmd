@@ -1,0 +1,71 @@
+---
+title:  "Business understanding"
+author: "Oliver Speer"
+date:   "`r Sys.Date()`"
+editor: visual
+lang: de
+language: 
+  title-block-author-single: "Autor:"
+  title-block-published: "Version vom:"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    theme: sandstone
+    fig-width: 8
+    fig-height: 6
+    fig-align: "center"
+    fig-caption: true
+    df-print: kable
+    highlight: "monochrome"
+---
+
+```{css, echo = FALSE}
+.justify {
+  text-align: justify
+}
+```
+
+## Business understanding {.justify}
+
+text
+
+### Geschäftlicher Hintergrund {.justify}
+
+Das ZLM ist der öffentliche & zentrale Versorger von labormedizinischer Dienstleistungen im Kanton St Gallen. Das ZLM beschäftigt ca 220 Mitarbeitende in den 5 klassischen Fachgebieten Genetik, Hämatologie, Immunologie, Mikrobiologie und Klinische Chemie.
+
+In der Klinischen Chemie sind 14 Mitarbeitende im hochautomatisierten Core-Labor und in der handarbeitslastigen Spezial-Chemie tätig. Die SPezial-Chemie ist noch relativ wenig automatisiert, ist jedoch mit einer überdurchschnittlichem Wachstum konfrontiert, welcher den schnellen Fortschritt in den diagnostischen und therapeutischen Möglichkeiten in der Medizin, aber auch das zunehmende Alter und somit zunehmende Komplexität der Erkrankungen in der Bevölkerung wiederspiegelt.
+
+Ein wesentlicher Anteil der Spezial-Chemie stellen die Protein-Elektrophoresen dar.
+
+[text]{style="color:#3C5AB4"}
+
+### Geschäftsziele definieren {.justify}
+
+Die technisch operative Durchführung ist mit dem Capylaris einigermassen automatisiert. Viel Zeit und Know-How bindet die Interpretation und B
+
+[text]{style="color:#3C5AB4"}
+
+[text]{style="color:#3C5AB4"}
+
+### Erfolgskriterien quantifizieren {.justify}
+
+text
+
+### Erfolgskriterien quantifizieren {.justify}
+
+text
+
+### Bewertung der Situation
+
+text
+
+### Bestimmung von Data-Mining Zielen
+
+text
+
+### Projektplan
+
+text
+

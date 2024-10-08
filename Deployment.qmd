@@ -1,0 +1,40 @@
+---
+title:  "Deployment"
+author: "Oliver Speer"
+date:   "`r Sys.Date()`"
+editor: visual
+lang: de
+language: 
+  title-block-author-single: "Autor:"
+  title-block-published: "Version vom:"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    theme: sandstone
+    fig-width: 8
+    fig-height: 6
+    fig-align: "center"
+    fig-caption: true
+    df-print: kable
+    highlight: "monochrome"
+---
+
+```{css, echo = FALSE}
+.justify {
+  text-align: justify
+}
+```
+
+
+
+## Deployment
+
+### Planen der Bereitstellung
+
+### Planen von Überwachung und Anpassung
+
+### Erstellen eines Abschlussberichtes
+
+### Abschliessende Projektbewertung
