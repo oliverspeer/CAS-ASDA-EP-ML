@@ -1,41 +1,56 @@
 project:
   type: book
 
+lang: de
+language: 
+  title-block-author-single: "Autor:"
+  title-block-published: "Erstellt am:"
+
 book:
-  title: "Can machine learning support validation by disrciminating pathological 
-  from normal protein electrophoresis in the medical diagnositc laboratory?"
+  title: "Machine Learning als Unterstützung in der Labormedizin?"
+  subtitle: "Data-Minig-Projekt zur Interpretation der Protein-Elektrophorese"
   author: "Oliver Speer"
-  date: "03.10.2024"
+  date: "10.03.2024"
+  editor: visual
   cover-image: zhaw.png
-  repo-url: https://github.com/oliverspeer/CAS-ASDA.git
+  repo-url: 'https://github.com/oliverspeer/CAS-ASDA-EP-ML.git'
   repo-branch: main
-  repo-actions: [edit, issue]
-  
+  repo-actions: [edit]
+
   chapters:
     - index.qmd
     - intro.qmd
-    - Business understanding.qmd
-    - Data understanding.qmd
-    - Data preparation.qmd
+    
+    - BusinessUnderstanding.qmd
+    - DataUnderstanding.qmd
+    - DataPreparation.qmd
     - Modeling.qmd
     - Evaluation.qmd
     - Deployment.qmd
+    
     - references.qmd
 
-bibliography: references.bib
+bibliography: my_ref.bib
 
 format:
   html:
     theme: cosmo
+    fig-width: 8
+    fig-height: 6
+    fig-align: "center"
+    fig-caption: true
+    df-print: kable
+    highlight: "monochrome"
     css: cas.css
-    
     code-link: true
-    
+    code-fold: true
+  #  embed-resources: true
 
   pdf:
     documentclass: scrreprt
     author-meta: "Oliver Speer"
     callout-appearance: simple
 
-editor: visual
+
+
 

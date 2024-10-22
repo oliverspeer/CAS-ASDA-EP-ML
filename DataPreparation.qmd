@@ -1,0 +1,30 @@
+---
+author: "Oliver Speer"
+date: "10.12.2024"
+---
+
+::::: columns
+::: {.column width="50%"}
+:::
+
+::: {.column width="50%"}
+```{r version number, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+cat("Version:\n",format(file.info("DataPreparation.qmd")$mtime,"%d. %B %Y"))
+```
+:::
+:::::
+
+
+
+# Data Preparation {.unnumbered}
+[**text & code folgt**]{style="#00008B"}
+
+## Auswahl der Daten: Auswahl der relevanten Elemente und Merkmale {.justify}
+
+## Bereinigen der Daten {.justify}
+
+## Erstellen neuer Daten {.justify}
+
+## Integrieren von Daten {.justify}
+
+## Formatieren von Daten {.justify}

@@ -1,9 +1,20 @@
-# Introduction
+---
+author: "Oliver Speer"
+date: "10.12.2024"
+---
 
-This is a book created from markdown and executable code.
+::::: columns
+::: {.column width="50%"}
+:::
 
-See @knuth84 for additional discussion of literate programming.
-
-```{r}
-1 + 1
+::: {.column width="50%"}
+```{r version number, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+cat("Version:\n",format(file.info("intro.qmd")$mtime,"%d. %B %Y"))
 ```
+:::
+:::::
+
+
+# Einleitung & Hintergrund {.unnumbered}
+
+[**folgt falls nötig**]{style="color:#00008B"}

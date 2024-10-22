@@ -1,9 +1,22 @@
-# Preface {.unnumbered}
+---
+author: "Oliver Speer"
+date: "10.06.2024"
+---
 
-This is a Quarto book.
+::::: columns
+::: {.column width="50%"}
+:::
 
-To learn more about Quarto books visit <https://quarto.org/docs/books>.
-
-```{r}
-1 + 1
+::: {.column width="50%"}
+```{r version number, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+cat("Version:\n",format(file.info("BusinessUnderstanding.qmd")$mtime,"%d. %B %Y"))
 ```
+:::
+:::::
+
+ 
+<!-- ![ ](zlm.jpeg){width=45%} -->
+
+# Vorwort {.unnumbered}
+
+Dieses Quarto-Book beinhaltet die Kapitel des CRISP-DM-Prozesses. In der vorliegenden Version ist im wesentlichen jedoch nur das Kapitel "Business Understanding" ausformuliert. Dieses dient als Abriss (Abgabe 20.10.24) für das gesamte Auswertungskonzept (Präsentation KW2 / KW3 2025). 

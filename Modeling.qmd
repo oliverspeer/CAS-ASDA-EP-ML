@@ -1,56 +1,29 @@
 ---
-title:  "Modeling"
 author: "Oliver Speer"
-date:   "`r Sys.Date()`"
-editor: visual
-lang: de
-language: 
-  title-block-author-single: "Autor:"
-  title-block-published: "Version vom:"
-format:
-  html:
-    embed-resources: true
-    toc: true
-    toc-depth: 3
-    theme: sandstone
-    fig-width: 8
-    fig-height: 6
-    fig-align: "center"
-    fig-caption: true
-    df-print: kable
-    highlight: "monochrome"
+date: "10.12.2024"
 ---
 
-```{css, echo = FALSE}
-.justify {
-  text-align: justify
-}
+::::: columns
+::: {.column width="50%"}
+:::
+
+::: {.column width="50%"}
+```{r version number, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+cat("Version:\n",format(file.info("Modeling.qmd")$mtime,"%d. %B %Y"))
 ```
+:::
+:::::
 
 
 
-## Modeling
+# Modeling {.unnumbered}
+[text & code folgt]{style="#00008B"}
 
-### Auswählen der Modellierungsverfahren
+## Auswählen der Modellierungsverfahren {.justify}
 
-### Generieren eines Testdesigns
+## Generieren eines Testdesigns {.justify}
 
-### Erstellen der Modelle
+## Erstellen der Modelle {.justify}
 
-### Bewerten des Modells
+## Bewerten des Modells {.justify}
 
-## Evaluation
-
-### Evaluieren der Ergebnisse
-
-### Überprüfungsprozess
-
-## Deployment
-
-### Planen der Bereitstellung
-
-### Planen von Überwachung und Anpassung
-
-### Erstellen eines Abschlussberichtes
-
-### Abschliessende Projektbewertung

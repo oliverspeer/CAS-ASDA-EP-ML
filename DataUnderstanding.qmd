@@ -1,0 +1,35 @@
+---
+author: "Oliver Speer"
+date: "10.12.2024"
+---
+
+::::: columns
+::: {.column width="50%"}
+:::
+
+::: {.column width="50%"}
+```{r version number, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+cat("Version:\n",format(file.info("DataUnderstanding.qmd")$mtime,"%d. %B %Y"))
+```
+:::
+:::::
+
+
+
+# Data Understanding {.unnumbered}
+[**text & code folgt**]{style="#00008B"}
+
+## Sammeln von Anfangsdaten {.justify}
+
+text
+
+## Beschreiben der Daten: Qualität & Quantität {.justify}
+
+text & code
+
+## Untersuchen der Daten: Explorative Datenanalyse {.justify}
+
+text & code
+
+## Überprüfen der Datenqualität {.justify}
+

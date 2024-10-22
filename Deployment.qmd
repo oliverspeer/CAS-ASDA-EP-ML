@@ -1,40 +1,28 @@
 ---
-title:  "Deployment"
 author: "Oliver Speer"
-date:   "`r Sys.Date()`"
-editor: visual
-lang: de
-language: 
-  title-block-author-single: "Autor:"
-  title-block-published: "Version vom:"
-format:
-  html:
-    embed-resources: true
-    toc: true
-    toc-depth: 3
-    theme: sandstone
-    fig-width: 8
-    fig-height: 6
-    fig-align: "center"
-    fig-caption: true
-    df-print: kable
-    highlight: "monochrome"
+date: "10.12.2024"
 ---
 
-```{css, echo = FALSE}
-.justify {
-  text-align: justify
-}
+::::: columns
+::: {.column width="50%"}
+:::
+
+::: {.column width="50%"}
+```{r version number, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+cat("Version:\n",format(file.info("Deployment.qmd")$mtime,"%d. %B %Y"))
 ```
+:::
+:::::
 
 
 
-## Deployment
+# Deployment {.unnumbered}
+[**text & code folgt**]{style="#00008B"}
 
-### Planen der Bereitstellung
+## Planen der Bereitstellung {.justify}
 
-### Planen von Überwachung und Anpassung
+## Planen von Überwachung und Anpassung {.justify}
 
-### Erstellen eines Abschlussberichtes
+## Erstellen eines Abschlussberichtes {.justify}
 
-### Abschliessende Projektbewertung
+## Abschliessende Projektbewertung {.justify}

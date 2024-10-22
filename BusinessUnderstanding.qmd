@@ -1,0 +1,284 @@
+---
+author: "Oliver Speer"
+date: "10.06.2024"
+---
+
+::::: columns
+::: {.column width="50%"}
+:::
+
+::: {.column width="50%"}
+```{r version number, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+cat("Version:\n",format(file.info("BusinessUnderstanding.qmd")$mtime,"%d. %B %Y"))
+```
+:::
+:::::
+
+# Business Understanding {.unnumbered}
+
+## Geschäftlicher Hintergrund {.justify}
+
+Das Zentrum für Labormedizin (ZLM) ist der öffentliche & zentrale Versorger von labormedizinischen Dienstleistungen im Kanton St Gallen. Das ZLM beschäftigt ca 240 Mitarbeitende in den fünf klassischen Fachgebieten Genetik, Hämatologie, Immunologie, Mikrobiologie und Klinische Chemie [@korteGeschaftsbericht2023].
+
+In der Klinischen Chemie arbeiten 14 Mitarbeitende. Sie führen rund 3Mio Analysen jährlich im hochautomatisierten Core-Labor und in der handarbeits-intensiven Spezial-Chemie durch. Die Spezial-Chemie ist noch relativ wenig automatisiert, ist jedoch mit einem überdurchschnittlichem Wachstum (5-8% jährlich) konfrontiert, welches den schnellen Fortschritt in den diagnostischen und therapeutischen Möglichkeiten in der Medizin, aber auch das zunehmende Alter und somit zunehmende Komplexität der Erkrankungen in der Bevölkerung wiederspiegelt.
+
+Mit rund 4100 Aufträgen jährlich stellen die Protein-Elektrophoresen (EP) (siehe @fig-epumsatz) einen wesentlicher Anteil der täglichen Routine-Arbeit in der Spezial-Chemie. Mit deren technisch operativen Durchführung der Interpretation der Resulate werden überproportional viel Arbeitszeit verwendet.
+
+```{r, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+
+# prepare libraries ---------------------------------------------------------
+# Vector of libraries
+packages <- c(
+              "readxl", 
+              "data.table", 
+              "tidyverse", 
+              "DBI", 
+              "RSQLite",
+              "scales"
+              )
+
+# Loop to check if libraries are installed and install them if not and load them
+for (package in packages) {
+  if (! require(package, character.only = TRUE)) {
+    install.packages(package, dependencies = TRUE)
+    library(package, character.only = TRUE)
+  }
+}
+
+# setting ggplot theme------------------------------------------------------
+theme_set(
+  theme_grey() +
+  theme( text = element_text(size = 14),
+         axis.title = element_text(size = 16),
+         axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+         axis.text.y = element_text(size = 14))
+
+                        )
+# setup functions ------------------------------------------------------------
+fun.labels <- function(values, data.range = NULL) {
+  if(is.null(data.range)) {
+    data.range <- range(values, na.rm = TRUE)
+  }
+  max.value <- max(abs(data.range))
+  
+  if (max.value >= 1e6) {
+    return(number(values / 1e6, accuracy = 0.1, suffix = " M"))
+  } else if (max.value >= 1e3) {
+    return(number(values / 1e3, accuracy = 0.1, suffix = " k"))
+  } else {
+    return(number(values))
+  }
+}
+
+
+# connect to database ------------------------------------------------------
+# Function to detect the operating system and return the corresponding database path
+getDatabasePath <- function() {
+  # Detect operating system
+  os <- Sys.info()["sysname"]
+  
+  # Set the path based on the operating system
+  if (os == "Linux") {
+    # Path for Ubuntu
+    path <- "/home/olli/R_local/labStat/ClinicalChemistry_1.db"
+  } else if (os == "Windows") {
+    # Path for Windows
+    path <- "C:/R_local/labStat/ClinicalChemistry_1.db"
+  } else {
+    stop("Operating system not supported")
+  }
+  
+  return(path)
+}
+
+# set database directory
+db.wd <- getDatabasePath()
+
+# Connect to the database
+db <- dbConnect(SQLite(), dbname = db.wd)
+
+
+
+
+
+
+# Generate plot with yearly Txp & Count data per method for the selected device-------------------------------
+
+     query <- sprintf("SELECT MeasurementData.Jahr AS Year, MeasurementData.Bezeichnung AS Analyt,
+                       SUM(Txp) AS 'Txp Umsatz', 
+                       COUNT(DISTINCT Tagesnummer) AS 'Anzahl Aufträge'
+                  FROM MeasurementData
+                  JOIN TarifData ON MeasurementData.Methode = TarifData.Methode
+                  JOIN MethodData ON MeasurementData.Methode = MethodData.Methode
+                  WHERE MethodData.Gerät = 'EP_IFE' 
+                  AND MeasurementData.Jahr =  '2023' 
+                  GROUP BY MeasurementData.Jahr, MeasurementData.Methode
+                  ORDER BY MeasurementData.Jahr ASC, MeasurementData.Methode ASC")
+     
+     data.device.a <- dbGetQuery(db, query)
+     
+     # calculate 'Txp' as percentage of total
+     data.device.a$'Umsatz [%]' <- data.device.a$'Txp Umsatz' / sum(data.device.a$'Txp Umsatz') * 100
+     
+     # calculate ranges and factors for axis scaling
+     data.range <- range(data.device.a$'Txp Umsatz', na.rm = TRUE)
+     scaling.factor <- max(abs(data.range))/max(data.device.a$'Anzahl Aufträge', na.rm = TRUE)
+     
+     
+     # Plot the data
+    p <-  ggplot(data.device.a, aes(x = Analyt)) +
+       geom_col(aes(y = `Txp Umsatz`), fill = "red", color = "darkgreen", alpha = 0.8) +
+       geom_point(aes(y = scaling.factor*`Anzahl Aufträge`, size = `Umsatz [%]`), 
+                  shape = 21, 
+                  fill = "lightblue", 
+                  color = "navy", 
+                  stroke = 0.8, 
+                  alpha = 0.8
+                  ) + 
+       labs(x = " ", y = "Umsatz [CHF]", title = " ") +
+       theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8),
+             axis.text.y = element_text(size = 8),
+             axis.title.y = element_text(size = 10))  +
+       scale_y_continuous(labels = function(values) fun.labels(values, data.range), 
+                          #label_number(big.mark = "'", decimal.mark = '.'),  
+                          sec.axis = sec_axis(~. /scaling.factor, name = "Anzahl Aufträge"))
+    
+# disconnect from database
+# dbDisconnect(db)
+```
+
+```{r, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-epumsatz
+#| fig-cap: "Umsatz der verschiedenen Analysen in der Spezial-Chemie im Jahr 2023"
+
+(p)
+```
+
+Die Protein-Elektrophoresen (EP) sind neben den Immunfixationen mit 40% des Umsatzes die wichtigste Analyse in der Spezial-Chemie.
+
+Die technisch operative Durchführung der EPs ist mit dem Capylaris (@fig-capy) semi- automatisiert.
+
+![**Capylaris** *Quelle: www.sebia.com*](fig2_capy.jpeg){#fig-capy}
+
+![**Chromatogramm:** einer Serum-Protein-Elektrophorese mit den verschiedenen Peaks.](fig1_EP.png){#fig-chrom}
+
+[@leeClinicalUseInterpretation2017]
+
+Die Software des Capylaris speichert die Signalstärken der EPs und stellt diese als Chromatogramme dar (@fig-chrom). Die Kontrolle und Interpretation der EP-Chromatogramme wird in zwei Phasen aufgeteilt: der technischen Validation und der medizinischen Validation. Dieser Validationsprozess benötigt viel Zeit und Know-How, ist komplex und erfordert Erfahrung und Wissen. Vorallem die medizinische Validation ist zum Teil subjektiv und wird von verschiedenen Mitarbeitenden unterschiedlich durchgeführt.
+
+Zudem stehen alle Mitarbeitenden unter permanentem Zeitdruck, da pro Mitarbeitenden viele Aufträge in unterschiedlichen Prozessen anfallen.
+
+Da die Mehrheit der Chromatogramme normal (= unauffällig) sind, wäre es eine wesentliche Erleichterung, wenn ein digitales System (machine learning model) diese als solche erkennen und klassifizieren könnte.
+
+## Geschäftsziele definieren {.justify}
+
+**Zu klärende Fragen**
+
+-   Kann ein supervised Model zwischen normalen und pathologischen EP-Chromatogrammen unterscheiden?
+
+-   Wird ein solches Model genau genug sein um im Alltag tatsächlich zum Abbau der Arbeitslast beitragen zu können?
+
+**Zu lösende Probleme**
+
+-   Prozessoptimierung der Protein-Elektrophorese
+
+-   Laborantinnen verbringen weniger Zeit mit der Interpretation / Validierung normaler EP-Chromatogramme
+
+-   Risikominimierung,
+
+-   Qualitätssteigerung und
+
+-   Know-How-Sicherung durch standartisierte Interpretation
+
+-   Effizienzsteigerung und Know-How-Sicherung durch automatisierte Interpretation
+
+-   Evtl Marketing von "AI in der Klinischen Chemie"
+
+## Erfolgskriterien quantifizieren {.justify}
+
+-   80% der normalen Protein-Elektrophoresen werden von einem Model automatisiert korrekt interpretiert
+-   Alle in diesem Prozess beteiligten Mitarbeitenden sind bis Ende 2025 geschult und wenden das Model an
+
+## Bewertung der Situation {.justify}
+
+**Operativer Prozess**
+
+Heute werden die Chromatogramme der Protein-Elektrophoresen täglich von je einer Laborantin interpretiert und im Laborinformationssystem (LIS) dokumentiert. Anschliessend werden diese Interpretationen von einer Akademikerin im medizinischen Kontext kontrolliert, evtl korrigiert und dann der gesamte Befund für Versandt zum Kunden (Kliniker am Kantonsspital, niedergelassener Arzt) freigegeben.
+
+Nur für die Interpretation der normalen Chromatogramme stehen standardisierte Textbausteine im LIS zur Vefügung. Für die Interpretation der als pathologisch eingestuften Chromatogramme stehen keine standartisierten Textbausteine zur Verfügung.
+
+Die Durchführung dieses Prozesses ist nur eine von mehreren Tätigkeiten, welche die Mitarbeitenen täglich ausführen müssen. Es besteht ein erheblicher Zeitdruck.
+
+**Human Ressources**
+
+Momentan sind für diesen Prozess sechs Laborant:innen und fünf Akademiker:innen geschult. Alle 11 Personen stehen in verschiedenen Phasen ihrer professionellen Entwicklung, haben also unterschiedliche Erfahrungen. Ausserdem haben die Mitarbeitenden zum Teil unterschiedlich Bildungshintergründe (CTA, BMA, MPA, Biologen, Mediziner) aus z.T. unterschiedlichen internationalen Bildungssystemen.
+
+Das Schulen und Trainieren neuer Mitarbeitenden ist aufwändig und benötigt viel Zeit. Diese Schulungen und Trainings können durch machine-learning- oder KI-Ansätze in Zukunft jedoch nicht ersetzt werden, da die Mitarbeitenden jederzeit in der Lage sein müssen, die Interpretationen selbständig auszuführen (Redundanz), zu überprüfen und zu korrigieren.
+
+Diese heterogene Situation beim Wissens- und Erfahrungsstand des Mitarbeitenden führt wiederholt zu unterschiedlichen Interpretationen. Eine digitale Führung durch das LIS fehlt momentan vollständig. Damit entstehen zum Teil Unsicherheiten, Unklarheiten und schlussendlich Zeitverluste bei diesem Prozess. Eine konsistente Qualitätssicherung und Standardisierung im Sinne der Patienten kann momentan nicht zu 100% gewährleistet werden.
+
+**Ressourcen:**
+
+-   Fachwissen im Team der Klinischen Chemie sehr viel vorhanden, dass sich gut ergänzt (BMA, CTA, Mediziner, Biologen, Biotechnologen), sowohl labormedizinisch, als auch IT-technisch (R, SQL, Python, C##)
+
+-   IT-Mitarbeiter Ressourcen sehr limitiert vorhanden (Fachkräftemangel)
+
+-   Hard- und Software für Daten-Speicherung, - Aufbereitung und - Modellierung ausreichend vorhanden, wird betreut durch IT-Service-Desk.
+
+-   Datenquellen: ca 4000 EP pro Jahr, digitale Rohdaten konsistent gespeichert seit 2018 auf lokalem Sebia-Server. Insgesamt sind ca 20'000 digital gespeicherte Chromatogramme vorhanden. 
+Die Chromatogramm-Interpretationen sind zusammen mit den Patientendaten wie Geschlecht, Geburtsdatum, anderen Laborwerten konsistent seit 1995 im LIS vorhanden. Zugänglich via SQL.
+Chromatogramm-Daten und Patienten-Daten sind über die eineindeutige Tagesnummer des jeweilgen Auftrags verknüpft.
+
+-   Anforderungen [**folgt**]{style="color:#00008B"}
+
+-   Annahmen [**folgt**]{style="color:#00008B"}
+
+-   Beschränkungen [**folgt**]{style="color:#00008B"}
+
+-   Risiken 1: Textbaustein nur für normale = unaufällige EP-Chromatogramme vorhanden. Pathologische EP-Chromatogramme werden individuell interpretiert und dokumentiert. Hier sehe ich das Risiko, dass aus den vorhandenen Text/String-Daten keine eindeutigen Muster für pathologische Interpretationen modelliert werden können. *Massnahme:* ?? Clustering von String-Daten ?? Mustererkennung?? RandomForrest um aus string-Daten unauffällig vs pathologisch vorher zu sagen?? Würde es helfen, andere Labordaten (IgG, IEF, CBC) heranzuziehen??
+
+-   Risiken 2: auf Seiten IT sehr wahrschweinlich zu wenige Ressourcen vorhanden um Model für automatiserte Interpreation ins LIS einzubauen. *Massnahme:* Falls ein sinnvoller machine-learning-Ansatz möglich sein wird, die Möglichkeiten mit Shiny / Python sondieren, um den Laborantinnen im Alltag einen sher benutzerfreundlichen Zugang zu ermöglichen.
+
+## Bestimmung von Data-Mining Zielen {.justify}
+
+-   Alle bisher aufgezeichneten Protein-Elektrophoese-Chromatogramme sind als x-y-Koordinaten gespeichert
+-   Weitere quantitative Merkmale der Chromatogramme, wie z Bsp Peakhöhen (peakhight), Peakflächen (area under the curve), Peakpositionen, Steigungswerte (slope) und deren Änderung (erste und zweite Ableitung), Segmente, Maximum- und Minimum-Werte werden neu berechnet und ebenfalls gespeichert
+-   Die dazughörigen Interpretationen sind als Texte im selben dataframe gespeichert
+-   Die dazugehörigen Patientendaten sind im selben dataframe gespeichert
+-   Alle diese Daten, welche für die Entwicklung des Models verwendet werden sind der Einfachheit halber und zur Dokumentation in einer separaten SQLite- Datenbank gespeichert
+-   mit Principal Component Analysis (PCA) werden die wichtigsten Variablen bzw. Merkmale des gesamten Datensatzes identifiziert. Eine Reduktion der Dimensionen kann durchgeführt werden
+-   Die Interaktionen zwischen den Merkmalen wird untersucht und berücksichtigt
+-   Mit diesen Daten wird ein Model zu trainieren, welches die normalen Chromatogramme von den pathologischen Chromatogrammen unterscheiden kann
+-   Dieses Model klassifiziert die normalen Chromatogramme mit einer Genauigkeit von min 80%
+
+## Projektplan {.justify}
+
+```{r project gantt, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+library(plan)
+pplan <- new("gantt")
+pplan <- ganttAddTask(pplan, "Business Understanding", "2024-10-06", "2024-10-19", done = 60)
+pplan <- ganttAddTask(pplan, "Data Understanding", "2024-10-06", "2024-10-30", done = 20, neededBy = 3)
+pplan <- ganttAddTask(pplan, "Data Preparation", "2024-10-15", "2024-12-20", done = 10, neededBy = 4)
+pplan <- ganttAddTask(pplan, "Modeling", "2024-12-20", "2025-01-15", done = 0, neededBy = 5)
+pplan <- ganttAddTask(pplan, "Evaluation", "2025-01-15", "2025-01-30", done = 0, neededBy = 6)
+pplan <- ganttAddTask(pplan, "Deployment", "2025-02-01", "2025-04-30", done = 0)
+font <- ifelse(is.na(pplan[["start"]]), 2, 1)
+```
+
+```{r fig-gantt, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-gantt
+#| fig-cap: "Gantt-Chart des Projektplans"
+
+
+plot(pplan, ylabel=list(font=font),
+     event.time=c("2024-10-20", "2025-01-30"), event.label=c("ZHAW: Konzept Abgabe", "Leistungsnachweis"))
+# par(lend="square") # default is round
+legend("topright", pch=22, pt.cex=2, pt.bg=gray(c(0.3, 0.9)),
+       border="black", 
+       xpd=NA,
+       legend=c("bearbeitet", "to be done"), 
+       # title=" ", 
+       bg="white")
+
+
+```
