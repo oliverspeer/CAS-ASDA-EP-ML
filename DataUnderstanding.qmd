@@ -21,7 +21,55 @@ cat("Version:\n",format(file.info("DataUnderstanding.qmd")$mtime,"%d. %B %Y"))
 
 ## Sammeln von Anfangsdaten {.justify}
 
-text
+### Protein-Elektrophorese-Daten {.justify}
+Aus dem localen Datenserver (Phoresis / Sebia) konnten die Protein-Elektrophorese-Daten im csv-Format exportiert werden.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+```
+
+```{r read csv, message=FALSE, warning=FALSE}
+# Einlesen der Daten
+
+EPcsv <- read.csv2("epcdatawithcurve.csv")
+str(EPcsv)
+head(EPcsv)
+```
+**Erklärungen:**
+
+
+$tanu: dies ist die eineindeutige Tages-Nummer (TaNu) des Auftrags. Mit ihr können auch Patientendaten und weitere Resultate zugeordnet werden.
+
+$ep: Befundtext / Interpretation die von Labormitareitern zu den Chromatogrammen erstellt wurden.
+
+$if: Befundtext / Interpretation die von Labormitareitern zu den Immunfixationen (falls vorhanden) erstellt wurden.
+
+$epc: unklare Daten
+
+$curve: Sebia speichert die Protein-Elektrophorese-Daten im hexadecimalen Format [@ChenWebpara2022]: 
+
+- je String 1200 Stellen. Nach 
+
+Dies kann umgewandelt und geplotet werden.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+hex.string <- EPcsv$curve[28276]
+
+# Split the string into hexadecimal parts
+hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
+
+# Convert each hex part to decimal
+decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
+
+# dataframe with hexadecimal and decimal values
+decimal.values <- as.data.frame(decimal.values)
+decimal.values$hex.parts <- hex.parts
+decimal.values$ID <- 1:nrow(decimal.values)
+
+# delete rows with decimal values >10000
+decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
+
+plot(decimal.values ~ ID, data = decimal.values, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "protein electrophoresis chromatogram")
+```
 
 ## Beschreiben der Daten: Qualität & Quantität {.justify}
 
