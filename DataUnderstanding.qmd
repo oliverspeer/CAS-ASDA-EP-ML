@@ -20,57 +20,47 @@ cat("Version:\n",format(file.info("DataUnderstanding.qmd")$mtime,"%d. %B %Y"))
 
 ### Protein-Elektrophorese-Daten {.justify}
 
-Aus dem localen Datenserver (Phoresis / Sebia) können die Protein-Elektrophorese-Daten im csv-Format exportiert werden.
+Aus dem lokalen Datenserver (Phoresis / Sebia) können die Protein-Elektrophorese-Daten im csv-Format exportiert werden.
 
 ### Patientendaten {.justify}
 
-Falls benötigt könnten über die Tagesnummer (TaNu) weitere Patientendaten aus dem Laborinformationssystem abgerufen & hinzugefügt werden.
+Falls benötigt könnten über die Tagesnummer (TaNu) weitere Patientendaten, wie Geburtsdatum, Geschlecht, weitere Laborbefunde aus dem Laborinformationssystem abgerufen & hinzugefügt werden.
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-source("StartUp.R")
-StartUpRoutine()
-```
-
-```{r, echo=TRUE, message=FALSE, warning=FALSE}
-query <- "SELECT *
-            FROM MeasurementData
-            WHERE Tagesnummer IN ('2019.01.01.4339',
-                                  '2019.01.02.0007', 
-                                  '2019.01.02.5266');"
-                     
-                    
-    pat.data <- dbGetQuery(con, query)
-    head(pat.data)
-```
 
 ## Beschreiben der Daten: Qualität & Quantität {.justify}
 
 ### Protein-Elektrophorese Daten
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r tidyverse, echo=FALSE, message=FALSE, warning=FALSE}
 library(tidyverse)
 ```
 
 ```{r read csv, echo=FALSE, message=FALSE, warning=FALSE}
 # Einlesen der Daten
 
-EPcsv <- read_csv("epcdatawithcurve.csv", col_select = c(1:4, 6), col_types = "icccc")
+EPcsv <- read_csv2("epcdatawithcurve.csv", col_select = c(1:4, 6), col_types = "icccc") |> 
+  rename_with(~ c("ID", "TaNu", "Bef.EP", "Bef.ImFix", "curve"))
 #str(EPcsv)
-head(EPcsv)
+```
+
+
+```{r headcsv, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
+# print(head(EPcsv, 10))
+print(glimpse(EPcsv))
 ```
 
 **Erklärungen:**
 
-[\$tanu:]{.underline} Eineindeutige Tages-Nummer (TaNu) des Auftrags. Mit ihr können auch Patientendaten und weitere Resultate zugeordnet werden. Automatisch bei Auftragserfassung vergeben, sind immer vorhanden. <br> Fehlende Daten: `r sum(is.na(EPcsv$tanu))`
+[\$TaNu:]{.underline} Eineindeutige Tages-Nummer (TaNu) des Auftrags. Mit ihr können auch Patientendaten und weitere Resultate zugeordnet werden. Automatisch bei Auftragserfassung vergeben, sind immer vorhanden. <br> Fehlende Daten: `r sum(is.na(EPcsv$TaNu))`
 
-[\$befep:]{.underline} String-Daten, Befundtext / Interpretation die von Labormitarbeitenden zu den Chromatogrammen erstellt wurden. Diese Text enthalten wiederkehrende Formulierungen wie z. Bsp. "unauffällig", "unauffällige Charakterisitik", oder auch "M-Protein nachweisbar", "Fraktion erhöht", "Fraktion vermindert". <br> Fehlende Daten: `r sum(is.na(EPcsv$befep))` 
+[\$Bef.EP:]{.underline} String-Daten, Befundtext / Interpretation die von Labormitarbeitenden zu den Chromatogrammen erstellt wurden. Diese Text enthalten wiederkehrende Formulierungen wie z. Bsp. "unauffällig", "unauffällige Charakterisitik", oder auch "M-Protein nachweisbar", "Fraktion erhöht", "Fraktion vermindert". <br> Fehlende Daten: `r sum(is.na(EPcsv$Bef.EP))` 
 
-[\$befimfix:]{.underline} Befundtext / Interpretation die von Labormitareitern zu den Immunfixationen (falls vorhanden) erstellt wurden. Auch hier werden ähnliche Formulierungen verwendet wie bei der EP-Befundung. <br> Fehlende Daten: `r sum(is.na(EPcsv$befimfix))`
+[\$Bef.ImFix:]{.underline} Befundtext / Interpretation die von Labormitareitern zu den Immunfixationen (falls vorhanden) erstellt wurden. Auch hier werden ähnliche Formulierungen verwendet wie bei der EP-Befundung. <br> Fehlende Daten: `r sum(is.na(EPcsv$Bef.ImFix))`
 
 [\$curve:]{.underline} Sebia speichert die Protein-Elektrophorese-Daten im hexadecimalen Format [@ChenWebpara2022]. <br>  Je String 1200 Stellen, also 300 Hexadezimalwerte. Nach Konversion sind das als 300 Datenpunkte pro Chromatogramm. 
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-hex.string <- EPcsv$curve[28276]
+hex.string <- EPcsv$curve[EPcsv$ID == 1691]
 
 # Split the string into hexadecimal parts
 hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
@@ -91,8 +81,46 @@ plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "bl
 <br> Fehlende Daten:  `r sum(is.na(EPcsv$curve))`
 
 
+### Patientendaten
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+source("StartUp.R")
+StartUpRoutine()
+```
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+query <- "SELECT *
+            FROM MeasurementData
+            WHERE Tagesnummer IN ('2019.01.01.4339',
+                                  '2019.01.02.0007', 
+                                  '2019.01.02.5266');"
+                     
+                    
+    pat.data <- dbGetQuery(con, query)
+    
+print(glimpse(pat.data))
+```
+
+
 ## Untersuchen der Daten: Explorative Datenanalyse {.justify}
 
-text & code
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(stringr)
+m.grad.count <- str_count(EPcsv$Bef.EP, regex("gradient", ignore_case = TRUE))
+m.prot.count <- str_count(EPcsv$Bef.EP, regex("M-Protein", ignore_case = TRUE))
+m.komp.count <- str_count(EPcsv$Bef.EP, regex("m-komponent", ignore_case = TRUE))
+normal.count <- str_count(EPcsv$Bef.EP, regex("unauffällig", ignore_case = TRUE))
+entf.count <- str_count(EPcsv$Bef.EP, regex("entfernt", ignore_case = TRUE))
+
+```
+In den Befundtexten kommt insgesamt das Wort <br>
+"unauffällig" `r sum(normal.count)` mal vor. Das Wort<br>
+"M-Protein" kommt `r sum(m.prot.count)`,<br>
+"M-Komponente" `r sum(m.komp.count)`,<br>
+"M-Gradient" `r sum(m.grad.count)` mal vor.
+
+
+Auf den ersten Blick scheinen in den Daten `r sum(normal.count)` unauffällige Befunde vor,
+bei insgesamt `r nrow(EPcsv)-sum(entf.count)` befundeten Chromatogrammen.
+
 
 ## Überprüfen der Datenqualität {.justify}
