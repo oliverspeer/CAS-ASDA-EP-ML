@@ -57,7 +57,7 @@ print(glimpse(EPcsv))
 
 [\$Bef.ImFix:]{.underline} Befundtext / Interpretation die von Labormitareitern zu den Immunfixationen (falls vorhanden) erstellt wurden. Auch hier werden ähnliche Formulierungen verwendet wie bei der EP-Befundung. <br> Fehlende Daten: `r sum(is.na(EPcsv$Bef.ImFix))`
 
-[\$curve:]{.underline} Sebia speichert die Protein-Elektrophorese-Daten im hexadecimalen Format [@ChenWebpara2022]. <br>  Je String 1200 Stellen, also 300 Hexadezimalwerte. Nach Konversion sind das als 300 Datenpunkte pro Chromatogramm. 
+[\$curve:]{.underline} Sebia speichert die Protein-Elektrophorese-Daten im hexadecimalen Format [@ChenWebpara2022]. <br>  Je String 1200 Stellen, also 300 Hexadezimalwerte. Nach Konversion ins Dezimal-System sind das also 300 Datenpunkte pro Chromatogramm. 
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 hex.string <- EPcsv$curve[EPcsv$ID == 1691]
@@ -100,8 +100,11 @@ query <- "SELECT *
 print(glimpse(pat.data))
 ```
 
+Da alle involvierten Prozesse der Datengeneration und der Datensammlung automatisiert und damit standardisiert sind, sind die Daten qualitativ hochwertig. Die Quantität der Daten mit `r nrow(EPcsv)` Datensätzen ist für einige unsupervised und auch unsupervised Model-Ansätze ausreichend, für Ansätze mit z. Bsp Tensor Flow sind es evtl. zu wenig Datensätze. 
 
 ## Untersuchen der Daten: Explorative Datenanalyse {.justify}
+
+### String Daten in den Befunden
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library(stringr)
@@ -119,8 +122,30 @@ In den Befundtexten kommt insgesamt das Wort <br>
 "M-Gradient" `r sum(m.grad.count)` mal vor.
 
 
-Auf den ersten Blick scheinen in den Daten `r sum(normal.count)` unauffällige Befunde vor,
+Auf den ersten Blick scheinen in den Daten `r sum(normal.count)` unauffällige Befunde vorzukommen,
 bei insgesamt `r nrow(EPcsv)-sum(entf.count)` befundeten Chromatogrammen.
+
+### Chromatogramm Daten
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+hex.string <- EPcsv$curve[EPcsv$ID == 1691]
+
+# Split the string into hexadecimal parts
+hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
+
+# Convert each hex part to decimal
+decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
+
+# dataframe with hexadecimal and decimal values
+decimal.values <- as.data.frame(decimal.values)
+decimal.values$hex.parts <- hex.parts
+decimal.values$ID <- 1:nrow(decimal.values)
+
+# delete rows with decimal values >10000
+decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
+
+plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "protein electrophoresis chromatogram")
+```
 
 
 ## Überprüfen der Datenqualität {.justify}
