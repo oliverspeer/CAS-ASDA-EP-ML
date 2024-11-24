@@ -44,12 +44,16 @@ format:
     css: cas.css
     code-link: true
     code-fold: true
-  #  embed-resources: true
+    code-tools: true
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    toc-title: "Inhalt"
+    
+    
+    
 
-  pdf:
-    documentclass: scrreprt
-    author-meta: "Oliver Speer"
-    callout-appearance: simple
+  
 
 
 
