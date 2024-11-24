@@ -257,10 +257,19 @@ Chromatogramm-Daten und Patienten-Daten sind über die eineindeutige Tagesnummer
 library(plan)
 pplan <- new("gantt")
 pplan <- ganttAddTask(pplan, "Business Understanding", "2024-10-06", "2024-10-19", done = 60)
-pplan <- ganttAddTask(pplan, "Data Understanding", "2024-10-06", "2024-10-30", done = 20, neededBy = 3)
-pplan <- ganttAddTask(pplan, "Data Preparation", "2024-10-15", "2024-12-20", done = 10, neededBy = 4)
-pplan <- ganttAddTask(pplan, "Modeling", "2024-12-20", "2025-01-15", done = 0, neededBy = 5)
-pplan <- ganttAddTask(pplan, "Evaluation", "2025-01-15", "2025-01-30", done = 0, neededBy = 6)
+pplan <- ganttAddTask(pplan, "Data Understanding", "2024-10-06", "2024-10-30", done = 80)
+
+pplan <- ganttAddTask(pplan, "Data Preparation")
+pplan <- ganttAddTask(pplan, "transpose hexa into dec", "2024-12-06", "2024-12-07")
+pplan <- ganttAddTask(pplan, "prepare new chrom.data (peak, area...)", "2024-12-10", "2024-12-15")
+pplan <- ganttAddTask(pplan, "prepare training and validation data sets", "2024-12-16", "2024-12-17")
+pplan <- ganttAddTask(pplan, "DAG?", "2024-12-18", "2024-12-19")
+pplan <- ganttAddTask(pplan, "variable selection", "2024-12-19", "2024-12-20")
+pplan <- ganttAddTask(pplan, "Modeling")
+pplan <- ganttAddTask(pplan, "glm", "2024-12-20", "2024-12-21", done = 0)
+pplan <- ganttAddTask(pplan, "random forrest", "2024-12-20", "2024-12-21", done = 0)
+
+pplan <- ganttAddTask(pplan, "Evaluation", "2025-01-15", "2025-01-30", done = 0)
 pplan <- ganttAddTask(pplan, "Deployment", "2025-02-01", "2025-04-30", done = 0)
 font <- ifelse(is.na(pplan[["start"]]), 2, 1)
 ```
