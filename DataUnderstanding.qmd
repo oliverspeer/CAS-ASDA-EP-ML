@@ -31,8 +31,9 @@ Falls benötigt könnten über die Tagesnummer (TaNu) weitere Patientendaten, wi
 
 ### Protein-Elektrophorese Daten
 
-```{r tidyverse, echo=FALSE, message=FALSE, warning=FALSE}
-library(tidyverse)
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+source("StartUp.R")
+StartUpRoutine()
 ```
 
 ```{r read csv, echo=FALSE, message=FALSE, warning=FALSE}
@@ -46,7 +47,9 @@ EPcsv <- read_csv2("epcdatawithcurve.csv", col_select = c(1:4, 6), col_types = "
 
 ```{r headcsv, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
 # print(head(EPcsv, 10))
-print(glimpse(EPcsv))
+# print(glimpse(EPcsv))
+ft <-  flextable(skim(EPcsv))
+ft
 ```
 
 **Erklärungen:**
@@ -82,10 +85,7 @@ plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "bl
 
 
 ### Patientendaten
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-source("StartUp.R")
-StartUpRoutine()
-```
+
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 query <- "SELECT *
@@ -97,10 +97,13 @@ query <- "SELECT *
                     
     pat.data <- dbGetQuery(con, query)
     
-print(glimpse(pat.data))
+# print(glimpse(pat.data))
+library(skimr)
+ft <- flextable(skim(pat.data))
+ft
 ```
 
-Da alle involvierten Prozesse der Datengeneration und der Datensammlung automatisiert und damit standardisiert sind, sind die Daten qualitativ hochwertig. Die Quantität der Daten mit `r nrow(EPcsv)` Datensätzen ist für einige unsupervised und auch unsupervised Model-Ansätze ausreichend, für Ansätze mit z. Bsp Tensor Flow sind es evtl. zu wenig Datensätze. 
+Da alle involvierten Prozesse der Datengeneration und der Datensammlung automatisiert und damit standardisiert sind, sind die Daten qualitativ hochwertig. Die Quantität der Daten mit `r nrow(EPcsv)` Datensätzen ist für einige unsupervised und auch supervised Model-Ansätze ausreichend, für Ansätze mit z. Bsp Tensor Flow sind es evtl. zu wenig Datensätze. 
 
 ## Untersuchen der Daten: Explorative Datenanalyse {.justify}
 
