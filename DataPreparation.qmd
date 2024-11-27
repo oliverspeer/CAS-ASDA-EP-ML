@@ -20,6 +20,26 @@ cat("Version:\n",format(file.info("DataPreparation.qmd")$mtime,"%d. %B %Y"))
 [**text & code folgt**]{style="#00008B"}
 
 ## Auswahl der Daten: Auswahl der relevanten Elemente und Merkmale {.justify}
+```{r}
+library(dagitty)
+dag <- dagitty('dag {
+  age -> gammopathy
+  food -> cholesterol
+  cholesterol -> gammopathy
+  smoking -> gammopathy
+  alcohol -> liver enzyme
+  alcohol -> cholesterol
+  gammopathy <- liver enzyme
+  sex -> gammopathy
+  GUS -> gammopathy
+  age -> GUS
+  
+}')
+
+plot(dag)
+
+adjustmentSets(dag, exposure = "sex", outcome = "gammopathy")
+```
 
 ## Bereinigen der Daten {.justify}
 
