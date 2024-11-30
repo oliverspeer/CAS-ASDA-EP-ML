@@ -246,8 +246,10 @@ Chromatogramm-Daten und Patienten-Daten sind über die eineindeutige Tagesnummer
 -   Die dazughörigen Interpretationen sind als Texte im selben dataframe gespeichert
 -   Die dazugehörigen Patientendaten sind im selben dataframe gespeichert
 -   Alle diese Daten, welche für die Entwicklung des Models verwendet werden sind der Einfachheit halber und zur Dokumentation in einer separaten SQLite- Datenbank gespeichert
--   mit Principal Component Analysis (PCA) werden die wichtigsten Variablen bzw. Merkmale des gesamten Datensatzes identifiziert. Eine Reduktion der Dimensionen kann durchgeführt werden
--   Die Interaktionen zwischen den Merkmalen wird untersucht und berücksichtigt
+-   mit Principal Component Analysis (PCA) werden die wichtigsten Variablen bzw. Merkmale des gesamten Datensatzes identifiziert. Eine Reduktion der Dimensionen kann durchgeführt werden.   
+[**oder besser ein DAG? Vielleicht ist dann eine PCA gar nicht nötig?**]{style="color:#00008B"}
+[Link to DataPreparation](DataPreparation.qmd#var_selection)
+-   Die Interaktionen & Colinearitäten zwischen den Merkmalen wird untersucht und berücksichtigt
 -   Mit diesen Daten wird ein Model zu trainieren, welches die normalen Chromatogramme von den pathologischen Chromatogrammen unterscheiden kann
 -   Dieses Model klassifiziert die normalen Chromatogramme mit einer Genauigkeit von min 80%
 
@@ -263,10 +265,10 @@ pplan <- ganttAddTask(pplan, "Data Preparation")
 pplan <- ganttAddTask(pplan, "transpose hexa into dec", "2024-12-06", "2024-12-07")
 pplan <- ganttAddTask(pplan, "prepare new chrom.data (peak, area...)", "2024-12-10", "2024-12-15")
 pplan <- ganttAddTask(pplan, "prepare training and validation data sets", "2024-12-16", "2024-12-17")
-pplan <- ganttAddTask(pplan, "DAG?", "2024-12-18", "2024-12-19")
-pplan <- ganttAddTask(pplan, "variable selection", "2024-12-19", "2024-12-20")
+pplan <- ganttAddTask(pplan, "DAG?", "2024-12-18", "2024-12-19", done = 95)
+pplan <- ganttAddTask(pplan, "variable selection", "2024-12-19", "2024-12-20", done = 60)
 pplan <- ganttAddTask(pplan, "Modeling")
-pplan <- ganttAddTask(pplan, "glm", "2024-12-20", "2024-12-21", done = 0)
+pplan <- ganttAddTask(pplan, "glm/gam", "2024-12-20", "2024-12-21", done = 0)
 pplan <- ganttAddTask(pplan, "random forrest", "2024-12-20", "2024-12-21", done = 0)
 
 pplan <- ganttAddTask(pplan, "Evaluation", "2025-01-15", "2025-01-30", done = 0)

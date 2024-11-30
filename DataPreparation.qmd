@@ -17,29 +17,49 @@ cat("Version:\n",format(file.info("DataPreparation.qmd")$mtime,"%d. %B %Y"))
 
 
 # Data Preparation {.unnumbered}
-[**text & code folgt**]{style="#00008B"}
 
-## Auswahl der Daten: Auswahl der relevanten Elemente und Merkmale {.justify}
-```{r}
+
+## Auswahl der Daten: Auswahl der relevanten Elemente und Merkmale {#var_selection .justify}
+
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 library(dagitty)
 dag <- dagitty('dag {
   age -> gammopathy
   food -> cholesterol
   cholesterol -> gammopathy
   smoking -> gammopathy
-  alcohol -> liver enzyme
+  alcohol -> liver_enzyme
   alcohol -> cholesterol
-  gammopathy <- liver enzyme
+  gammopathy <- liver_enzyme
   sex -> gammopathy
   GUS -> gammopathy
   age -> GUS
+  sex -> liver_enzyme
+  sex -> smoking
+  sex -> alcohol
+  sex -> cholesterol
+  sex -> GUS
+  sex -> age
+  age -> liver_enzyme
+  age -> food
+  age -> smoking
+  age -> alcohol
   
 }')
 
 plot(dag)
 
 adjustmentSets(dag, exposure = "sex", outcome = "gammopathy")
+adjustmentSets(dag, exposure = "age", outcome = "gammopathy")
 ```
+Sollte ich ein gam oder glm modellieren, dann kann ich aus dem oberen DAG mitnehmen, dass ich für "Alter" und "Geschlecht" adjustieren sollte.
+
+[**Q: Aber wie wähle ich für ein random forest Modell die relevanten Variablen aus?**]{style="#00008B"}
+
+
 
 ## Bereinigen der Daten {.justify}
 
