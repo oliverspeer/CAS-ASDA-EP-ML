@@ -244,18 +244,25 @@ Chromatogramm-Daten und Patienten-Daten sind über die eineindeutige Tagesnummer
 -   Alle bisher aufgezeichneten Protein-Elektrophoese-Chromatogramme sind als x-y-Koordinaten gespeichert  
 [aber wie, in welchem Format?]{style="color:#00008B;font-weight:bold"}   
 -   Weitere quantitative Merkmale der Chromatogramme, wie z Bsp Segmente, Peakhöhen (peakhight), Peakflächen (area under the curve), Peakpositionen, Steigungswerte (slope) und deren Änderung (erste und zweite Ableitung) werden neu berechnet und ebenfalls gespeichert  
-[soviele Merkmale wie möglich berechnen? oder sich von vorneherein beschränken?]{style="color:#00008B;font-weight:bold"}
 -   Die dazughörigen Interpretationen sind als Texte im selben dataframe gespeichert
 -   Die dazugehörigen Patientendaten sind im selben dataframe gespeichert  
-[soviele zusätzlich vorhandenen Analysen-Resultate pro Chromatogramm wie möglich mit speichern? oder sich von vorneherein beschränken? Siehe unten DAG...]{style="color:#00008B;font-weight:bold"}
 -   Alle diese Daten, welche für die Entwicklung des Models verwendet werden sind der Einfachheit halber und zur Dokumentation in einer separaten SQLite- Datenbank gespeichert
--   mit Principal Component Analysis (PCA) werden die wichtigsten Variablen bzw. Merkmale des gesamten Datensatzes identifiziert. Eine Reduktion der Dimensionen kann durchgeführt werden.   
-[**oder besser ein DAG? Vielleicht ist dann eine PCA gar nicht nötig?**]{style="color:#00008B"}
-[Link to DataPreparation](DataPreparation.qmd#var_selection)
--   Die Interaktionen & Colinearitäten zwischen den Merkmalen wird untersucht und berücksichtigt
--   Mit diesen Daten wird ein Model zu trainieren, welches die normalen Chromatogramme von den pathologischen Chromatogrammen unterscheiden kann  
-[glm, gam, XGBoost, random forrest, tensorflow(?), andere an die ich denken sollte?]{style="color:#00008B;font-weight:bold"}
--   Dieses Model klassifiziert die normalen Chromatogramme mit einer Genauigkeit von min 80%
+-   verschiedene Datensets sind generiert:  
+    -   Trainingsdatenset: 70% der Daten  
+    -   Validierungsdatenset: 30% der Daten   
+    -   Datenset für Test der R-codes: 100 Datensätze vom TRainingsdatenset
+    -   Testdatenset: Daten nach dem aktuellen Datum des vorliegenden Datensatzes (15.06.2024)
+-   Für die Zielvariable sind 3 Kategorien festgelegt:  
+    -   normal  
+    -   pathologisch  
+    -   unklar   
+-   Als oberste Priorität ist ein Model mit random forrest entwickelt, welches die normalen Chromatogramme von den pathologischen Chromatogrammen unterscheiden kann
+-   Das Model ist so entwickelt, dass es die normalen Chromatogramme mit einer Genauigkeit von min 90% klassifiziert werden
+-   mit Principal Component Analysis (PCA) sind die wichtigsten Variablen bzw. Merkmale des gesamten Datensatzes identifiziert. Eine Reduktion der Dimensionen ist durchgeführt.   
+-   Die Interaktionen & Colinearitäten zwischen den wichtigsten Prädiktoren sind untersucht und berücksichtigt
+-   Mit diesen Prädiktoren ist ein logistisches Regressions-Model entwickelt, welches die normalen Chromatogramme von den pathologischen Chromatogrammen mit einer Genauigkeit von min 90% unterscheiden kann  
+[glm, gam, XGBoost?]{style="color:#00008B;font-weight:bold"}
+ 
 
 ## Projektplan {.justify}
 
@@ -266,16 +273,20 @@ pplan <- ganttAddTask(pplan, "Business Understanding", "2024-10-06", "2024-10-19
 pplan <- ganttAddTask(pplan, "Data Understanding", "2024-10-06", "2024-10-30", done = 80)
 
 pplan <- ganttAddTask(pplan, "Data Preparation")
-pplan <- ganttAddTask(pplan, "transpose hexa into dec", "2024-12-06", "2024-12-07")
-pplan <- ganttAddTask(pplan, "prepare new chrom.data (peak, area...)", "2024-12-10", "2024-12-15")
-pplan <- ganttAddTask(pplan, "prepare training and validation data sets", "2024-12-16", "2024-12-17")
-pplan <- ganttAddTask(pplan, "DAG?", "2024-12-18", "2024-12-19", done = 95)
-pplan <- ganttAddTask(pplan, "variable selection", "2024-12-19", "2024-12-20", done = 60)
-pplan <- ganttAddTask(pplan, "Modeling")
-pplan <- ganttAddTask(pplan, "glm/gam", "2024-12-20", "2024-12-21", done = 0)
-pplan <- ganttAddTask(pplan, "random forrest", "2024-12-20", "2024-12-21", done = 0)
+pplan <- ganttAddTask(pplan, "transpose hexa into dec", "2024-11-30", "2024-12-01")
+pplan <- ganttAddTask(pplan, "prepare new chrom.data (peak, area...)", "2024-11-31", "2024-12-01")
+pplan <- ganttAddTask(pplan, "prepare training and validation data sets", "2024-12-07", "2024-12-08")
+pplan <- ganttAddTask(pplan, "prep datasample for automation testing", "2024-12-07", "2024-12-08", done = 0)
+pplan <- ganttAddTask(pplan, "Fill data into SQLite db", "2024-12-14", "2024-12-15", done = 0)
 
-pplan <- ganttAddTask(pplan, "Evaluation", "2025-01-15", "2025-01-30", done = 0)
+
+pplan <- ganttAddTask(pplan, "Modeling")
+pplan <- ganttAddTask(pplan, "random forrest", "2024-12-20", "2024-12-26", done = 0)
+pplan <- ganttAddTask(pplan, "PCA", "2024-12-27", "2024-12-28", done = 0)
+pplan <- ganttAddTask(pplan, "logistic Regression", "2024-12-29", "2024-12-31", done = 0)
+
+
+pplan <- ganttAddTask(pplan, "Evaluation", "2025-01-03", "2025-01-15", done = 0)
 pplan <- ganttAddTask(pplan, "Deployment", "2025-02-01", "2025-04-30", done = 0)
 font <- ifelse(is.na(pplan[["start"]]), 2, 1)
 ```

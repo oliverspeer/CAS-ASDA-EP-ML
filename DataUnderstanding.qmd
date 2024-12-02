@@ -45,7 +45,7 @@ EPcsv <- read_csv2("epcdatawithcurve.csv", col_select = c(1:4, 6), col_types = "
 ```
 
 
-```{r headcsv, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
+```{r , echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
 # print(head(EPcsv, 10))
 # print(glimpse(EPcsv))
 ft <-  flextable(skim(EPcsv))

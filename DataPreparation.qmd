@@ -105,6 +105,38 @@ points(decimal.values$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
 
 ``` 
 
+
+### peak detection
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+
+library(pracma)
+
+
+
+hex.string <- EPcsv$curve[EPcsv$ID == 1671]
+
+# Split the string into hexadecimal parts
+hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
+
+# Convert each hex part to decimal
+decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
+
+# dataframe with hexadecimal and decimal values
+decimal.values <- as.data.frame(decimal.values)
+decimal.values$hex.parts <- hex.parts
+decimal.values$ID <- 1:nrow(decimal.values)
+
+# delete rows with decimal values >10000
+decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
+
+peaks <- findpeaks(decimal.values$decimal.values, npeaks = 15, nups = 1, ndowns = 0, minpeakheight = 80)
+
+
+plot(decimal.values ~ ID, data = decimal.values, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "normales EP Chromatogramm mit detektierten Peaks")
+points(decimal.values$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
+
+``` 
+
 ### Steigungen vor den Peaks
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # calculate the slopes before and after the peaks
