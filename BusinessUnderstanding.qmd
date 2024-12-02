@@ -241,16 +241,20 @@ Chromatogramm-Daten und Patienten-Daten sind über die eineindeutige Tagesnummer
 
 ## Bestimmung von Data-Mining Zielen {.justify}
 
--   Alle bisher aufgezeichneten Protein-Elektrophoese-Chromatogramme sind als x-y-Koordinaten gespeichert
--   Weitere quantitative Merkmale der Chromatogramme, wie z Bsp Peakhöhen (peakhight), Peakflächen (area under the curve), Peakpositionen, Steigungswerte (slope) und deren Änderung (erste und zweite Ableitung), Segmente, Maximum- und Minimum-Werte werden neu berechnet und ebenfalls gespeichert
+-   Alle bisher aufgezeichneten Protein-Elektrophoese-Chromatogramme sind als x-y-Koordinaten gespeichert  
+[aber wie, in welchem Format?]{style="color:#00008B;font-weight:bold"}   
+-   Weitere quantitative Merkmale der Chromatogramme, wie z Bsp Segmente, Peakhöhen (peakhight), Peakflächen (area under the curve), Peakpositionen, Steigungswerte (slope) und deren Änderung (erste und zweite Ableitung) werden neu berechnet und ebenfalls gespeichert  
+[soviele Merkmale wie möglich berechnen? oder sich von vorneherein beschränken?]{style="color:#00008B;font-weight:bold"}
 -   Die dazughörigen Interpretationen sind als Texte im selben dataframe gespeichert
--   Die dazugehörigen Patientendaten sind im selben dataframe gespeichert
+-   Die dazugehörigen Patientendaten sind im selben dataframe gespeichert  
+[soviele zusätzlich vorhandenen Analysen-Resultate pro Chromatogramm wie möglich mit speichern? oder sich von vorneherein beschränken? Siehe unten DAG...]{style="color:#00008B;font-weight:bold"}
 -   Alle diese Daten, welche für die Entwicklung des Models verwendet werden sind der Einfachheit halber und zur Dokumentation in einer separaten SQLite- Datenbank gespeichert
 -   mit Principal Component Analysis (PCA) werden die wichtigsten Variablen bzw. Merkmale des gesamten Datensatzes identifiziert. Eine Reduktion der Dimensionen kann durchgeführt werden.   
 [**oder besser ein DAG? Vielleicht ist dann eine PCA gar nicht nötig?**]{style="color:#00008B"}
 [Link to DataPreparation](DataPreparation.qmd#var_selection)
 -   Die Interaktionen & Colinearitäten zwischen den Merkmalen wird untersucht und berücksichtigt
--   Mit diesen Daten wird ein Model zu trainieren, welches die normalen Chromatogramme von den pathologischen Chromatogrammen unterscheiden kann
+-   Mit diesen Daten wird ein Model zu trainieren, welches die normalen Chromatogramme von den pathologischen Chromatogrammen unterscheiden kann  
+[glm, gam, XGBoost, random forrest, tensorflow(?), andere an die ich denken sollte?]{style="color:#00008B;font-weight:bold"}
 -   Dieses Model klassifiziert die normalen Chromatogramme mit einer Genauigkeit von min 80%
 
 ## Projektplan {.justify}

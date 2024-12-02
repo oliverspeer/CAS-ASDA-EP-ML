@@ -152,3 +152,9 @@ plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "bl
 
 
 ## Überprüfen der Datenqualität {.justify}
+
+Die Datenqualität ist gut. Die Datensätze sind alle einheitlich, da automatisiert aufgezeichnet. 
+Von den `r as.integer(nrow(EPcsv))` Datensätze fehlen bei `r as.integer(sum(is.na(EPcsv$curve)))` die Chromatographie-Daten. Diese könnten bei der Datenpreparation ausgeschlossen werden.  
+
+Die Chromatographie Daten wurden bis `r as.Date(substr(max(EPcsv$TaNu), 1, 10), format = "%Y.%m.%d")` im vorliegenden Datensatz gespeichert. Die Daten von `r as.Date(substr(max(EPcsv$TaNu), 1, 10), format = "%Y.%m.%d")` bis `r Sys.Date()` könnten noch hinzugefügt werden.
+

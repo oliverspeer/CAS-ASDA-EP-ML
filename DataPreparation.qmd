@@ -14,7 +14,10 @@ cat("Version:\n",format(file.info("DataPreparation.qmd")$mtime,"%d. %B %Y"))
 :::
 :::::
 
-
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+source("StartUp.R")
+StartUpRoutine()
+```
 
 # Data Preparation {.unnumbered}
 
@@ -64,6 +67,71 @@ Sollte ich ein gam oder glm modellieren, dann kann ich aus dem oberen DAG mitneh
 ## Bereinigen der Daten {.justify}
 
 ## Erstellen neuer Daten {.justify}
+```{r read csv, echo=T, message=FALSE, warning=FALSE}
+# Einlesen der Daten
+
+EPcsv <- read_csv2("epcdatawithcurve.csv", col_select = c(1:4, 6), col_types = "icccc") |> 
+  rename_with(~ c("ID", "TaNu", "Bef.EP", "Bef.ImFix", "curve"))
+#str(EPcsv)
+```
+### peak detection
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+
+library(pracma)
+
+
+
+hex.string <- EPcsv$curve[EPcsv$ID == 1690]
+
+# Split the string into hexadecimal parts
+hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
+
+# Convert each hex part to decimal
+decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
+
+# dataframe with hexadecimal and decimal values
+decimal.values <- as.data.frame(decimal.values)
+decimal.values$hex.parts <- hex.parts
+decimal.values$ID <- 1:nrow(decimal.values)
+
+# delete rows with decimal values >10000
+decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
+
+peaks <- findpeaks(decimal.values$decimal.values, npeaks = 15, nups = 1, ndowns = 0, minpeakheight = 80)
+
+
+plot(decimal.values ~ ID, data = decimal.values, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "EP Chromatogramm mit detektierten Peaks")
+points(decimal.values$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
+
+``` 
+
+### Steigungen vor den Peaks
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# calculate the slopes before and after the peaks
+slopes <- numeric(0)
+for (i in 1:nrow(peaks)) {
+      slopes <- c(slopes, (decimal.values$decimal.values[peaks[i,2]-2] - decimal.values$decimal.values[peaks[i,2] - 5]) / ((peaks[i,2]-2) - (peaks[i,2] - 5)))
+ }
+
+slopes
+
+
+```
+
+### zweite Ableitung vor den Peaks 
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# calculate the second derivative at the peaks
+
+sp.der <- predict(smooth.spline(decimal.values$ID, decimal.values$decimal.values), deriv = 2)$y[peaks[,2]-0]
+sp.der
+```
+
+### Integration der Fläche unter den Peaks (AUC)
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# calculate the area under the curve
+```
+
+
 
 ## Integrieren von Daten {.justify}
 
