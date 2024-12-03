@@ -102,9 +102,29 @@ peaks <- findpeaks(decimal.values$decimal.values, npeaks = 15, nups = 1, ndowns 
 
 plot(decimal.values ~ ID, data = decimal.values, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "EP Chromatogramm mit detektierten Peaks")
 points(decimal.values$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
+abline(v = decimal.values$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks
+abline(v = decimal.values$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks
+
+
+
+
+
 
 ``` 
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# calculate the area under the curve for all peaks
 
+auc_all_peaks <- apply(peaks, 1, function(peak) {
+  start_index <- peak[3]  # Start index
+  end_index <- peak[4]    # End index
+  peak_time <- decimal.values$ID[start_index:end_index]
+  peak_signal <- decimal.values$decimal.values[start_index:end_index]
+  trapz(peak_time, peak_signal)  # Trapezoidal rule for AUC
+})
+
+auc_all_peaks
+
+```
 
 ### peak detection
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
@@ -134,8 +154,27 @@ peaks <- findpeaks(decimal.values$decimal.values, npeaks = 15, nups = 1, ndowns 
 
 plot(decimal.values ~ ID, data = decimal.values, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "normales EP Chromatogramm mit detektierten Peaks")
 points(decimal.values$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
-
+abline(v = decimal.values$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks
+abline(v = decimal.values$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks
 ``` 
+
+
+### Area Under the Curve (AUC)
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# calculate the area under the curve for all peaks
+
+auc_all_peaks <- apply(peaks, 1, function(peak) {
+  start_index <- peak[3]  # Start index
+  end_index <- peak[4]    # End index
+  peak_time <- decimal.values$ID[start_index:end_index]
+  peak_signal <- decimal.values$decimal.values[start_index:end_index]
+  trapz(peak_time, peak_signal)  # Trapezoidal rule for AUC
+})
+
+auc_all_peaks
+
+```
+
 
 ### Steigungen vor den Peaks
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
@@ -161,6 +200,11 @@ sp.der
 ### Integration der Fläche unter den Peaks (AUC)
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # calculate the area under the curve
+AUC <- numeric(0)
+for (i in 1:nrow(peaks)) {
+      AUC <- c(AUC, sum(decimal.values$decimal.values[peaks[i,2]-2:peaks[i,2]+2]))
+}
+
 ```
 
 
