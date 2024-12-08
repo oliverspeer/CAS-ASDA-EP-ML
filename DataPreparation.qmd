@@ -65,8 +65,6 @@ Sollte ich ein gam oder glm modellieren, dann kann ich aus dem oberen DAG mitneh
 
 
 ## Bereinigen der Daten {.justify}
-
-## Erstellen neuer Daten {.justify}
 ```{r read csv, echo=T, message=FALSE, warning=FALSE}
 # Einlesen der Daten
 
@@ -74,6 +72,32 @@ EPcsv <- read_csv2("epcdatawithcurve.csv", col_select = c(1:4, 6), col_types = "
   rename_with(~ c("ID", "TaNu", "Bef.EP", "Bef.ImFix", "curve"))
 #str(EPcsv)
 ```
+Datensätze ohne Chromatogramm-Daten werden entfernt.
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# filtern der Daten EPcsv1$curve !NA
+EPcsv1 <- EPcsv[!is.na(EPcsv$curve),]
+```
+
+## Erstellen neuer Daten {.justify}
+
+### Auswertung der Befundtexte {.justify}
+Als "ground truth" für die Auswertung der Chromatogramme dienen die Befundtexte der Immunfixationen. Diese Befundtext werden im folgenden ausgewertet.
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+EPcsv1 <- EPcsv1 |> 
+  mutate(
+    suspicious = case_when(
+      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird suspicious NA
+      grepl("M-Protein\\w|\\b(mono)?klonal(e|es|er|en)?\\b|Bande|Zonierung|Zonen|M-Protein|Para\\w|Inhomogen\\w|Unregelmässig\\w", Bef.ImFix, ignore.case = TRUE) ~ 1,
+      TRUE ~ 0
+    ),
+    neg.phrase = case_when(
+      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
+      grepl("nicht|kein\\w|ohne", Bef.ImFix, ignore.case = TRUE) ~ 1,
+      TRUE ~ 0
+    )
+  )
+```
+
 ### peak detection
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 
@@ -81,7 +105,7 @@ library(pracma)
 
 
 
-hex.string <- EPcsv$curve[EPcsv$ID == 1690]
+hex.string <- EPcsv1$curve[EPcsv1$ID == 1690]
 
 # Split the string into hexadecimal parts
 hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
@@ -92,7 +116,7 @@ decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
 # dataframe with hexadecimal and decimal values
 decimal.values <- as.data.frame(decimal.values)
 decimal.values$hex.parts <- hex.parts
-decimal.values$ID <- 1:nrow(decimal.values)
+decimal.values$ID <- seq_len( nrow(decimal.values) ) |> rev()
 
 # delete rows with decimal values >10000
 decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
@@ -133,7 +157,7 @@ library(pracma)
 
 
 
-hex.string <- EPcsv$curve[EPcsv$ID == 1671]
+hex.string <- EPcsv1$curve[EPcsv1$ID == 1671]
 
 # Split the string into hexadecimal parts
 hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
@@ -144,7 +168,7 @@ decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
 # dataframe with hexadecimal and decimal values
 decimal.values <- as.data.frame(decimal.values)
 decimal.values$hex.parts <- hex.parts
-decimal.values$ID <- 1:nrow(decimal.values)
+decimal.values$ID <- seq_len( nrow(decimal.values) ) |> rev()
 
 # delete rows with decimal values >10000
 decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]

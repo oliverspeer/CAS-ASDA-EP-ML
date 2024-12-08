@@ -274,7 +274,7 @@ pplan <- ganttAddTask(pplan, "Data Understanding", "2024-10-06", "2024-10-30", d
 
 pplan <- ganttAddTask(pplan, "Data Preparation")
 pplan <- ganttAddTask(pplan, "transpose hexa into dec", "2024-11-30", "2024-12-01")
-pplan <- ganttAddTask(pplan, "prepare new chrom.data (peak, area...)", "2024-11-31", "2024-12-01")
+pplan <- ganttAddTask(pplan, "prepare new chrom.data (peak, area...)", "2024-11-30", "2024-12-01")
 pplan <- ganttAddTask(pplan, "prepare training and validation data sets", "2024-12-07", "2024-12-08")
 pplan <- ganttAddTask(pplan, "prep datasample for automation testing", "2024-12-07", "2024-12-08", done = 0)
 pplan <- ganttAddTask(pplan, "Fill data into SQLite db", "2024-12-14", "2024-12-15", done = 0)

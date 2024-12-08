@@ -74,7 +74,7 @@ decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
 # dataframe with hexadecimal and decimal values
 decimal.values <- as.data.frame(decimal.values)
 decimal.values$hex.parts <- hex.parts
-decimal.values$ID <- 1:nrow(decimal.values)
+decimal.values$ID <- seq_len( nrow(decimal.values) ) |> rev()
 
 # delete rows with decimal values >10000
 decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
@@ -108,6 +108,7 @@ Da alle involvierten Prozesse der Datengeneration und der Datensammlung automati
 ## Untersuchen der Daten: Explorative Datenanalyse {.justify}
 
 ### String Daten in den Befunden
+#### EP Befunde
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library(stringr)
@@ -128,6 +129,47 @@ In den Befundtexten kommt insgesamt das Wort <br>
 Auf den ersten Blick scheinen in den Daten `r sum(normal.count)` unauffällige Befunde vorzukommen,
 bei insgesamt `r nrow(EPcsv)-sum(entf.count)` befundeten Chromatogrammen.
 
+#### Immunfixation Befunde
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(stringr)
+
+EPcsv1 <- EPcsv |> 
+  mutate(
+    suspicious = case_when(
+      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird suspicious NA
+      grepl("M-Protein\\w|\\b(mono)?klonal(e|es|er|en)?\\b|Bande|Zonierung|Zonen|M-Protein|Para\\w|Inhomogen\\w|Unregelmässig\\w", Bef.ImFix, ignore.case = TRUE) ~ 1,
+      TRUE ~ 0
+    ),
+    neg.phrase = case_when(
+      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
+      grepl("nicht|kein\\w|ohne", Bef.ImFix, ignore.case = TRUE) ~ 1,
+      TRUE ~ 0
+    )
+  )
+
+positive_count <- EPcsv1 |> 
+  filter(suspicious == 1 & neg.phrase == 0) |> 
+  nrow()
+
+negative_count <- EPcsv1 |> 
+  filter(suspicious == 1 & neg.phrase == 1 | suspicious == 0 & neg.phrase == 0 ) |> 
+  nrow() 
+
+other_count <- EPcsv1 |> 
+  filter(suspicious == 0 & neg.phrase == 1 ) |> 
+  nrow() 
+ 
+```
+
+```{r , echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
+# print(head(EPcsv, 10))
+# print(glimpse(EPcsv))
+ft <-  flextable(skim(EPcsv1))
+ft
+```
+
+[Insgesamt sind `r sum(nrow(na.omit(EPcsv1)))` Immunfixationen befundet worden. Davon sind `r negative_count` als negativ (unauffällig, oder M-Protein nicht mehr nachweisbar) befundet worden. In `r positive_count` Fällen wurde ein M-Protein oder eine Zonierung gefunden. `r other_count` Immunfixationen wurden als nicht eindeutig beurteilt.]{style="color:#00008B;font-weight:bold"}
+
 ### Chromatogramm Daten
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
@@ -142,7 +184,7 @@ decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
 # dataframe with hexadecimal and decimal values
 decimal.values <- as.data.frame(decimal.values)
 decimal.values$hex.parts <- hex.parts
-decimal.values$ID <- 1:nrow(decimal.values)
+decimal.values$ID <- seq_len( nrow(decimal.values) ) |> rev()
 
 # delete rows with decimal values >10000
 decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
