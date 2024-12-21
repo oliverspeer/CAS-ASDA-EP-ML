@@ -98,7 +98,7 @@ EPcsv1 <- EPcsv1 |>
   )
 ```
 
-### peak detection
+### peak detection im pathologischen Chromatogramm
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 
 library(pracma)
@@ -114,21 +114,24 @@ hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(he
 decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
 
 # dataframe with hexadecimal and decimal values
-decimal.values <- as.data.frame(decimal.values)
-decimal.values$hex.parts <- hex.parts
-decimal.values$ID <- seq_len( nrow(decimal.values) ) |> rev()
+dat <- as.data.frame(decimal.values)
+dat$decimal.values <- rev(dat$decimal.values)
+dat$hex.parts <- hex.parts
+dat$ID <- seq_len( nrow(dat) ) 
 
 # delete rows with decimal values >10000
-decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
+dat <- dat[dat$decimal.values < 10000,]
 
-peaks <- findpeaks(decimal.values$decimal.values, npeaks = 15, nups = 1, ndowns = 0, minpeakheight = 80)
+peaks <- findpeaks(dat$decimal.values, npeaks = 15, nups = 1, ndowns = 0, minpeakheight = 80)
 
 
-plot(decimal.values ~ ID, data = decimal.values, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "EP Chromatogramm mit detektierten Peaks")
-points(decimal.values$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
-abline(v = decimal.values$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks
-abline(v = decimal.values$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks
-
+plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "EP Chromatogramm mit detektierten Peaks")
+points(dat$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
+abline(v = dat$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks
+abline(v = dat$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks
+abline(v = dat$ID[160], col = "orange", lty = 2)
+text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels = c("Albumin", "alpha 1", "alpha 2", "beta 1", "beta 2", "gamma"),
+     pos = c(2, 3, 3, 3, 3, 3), offset = 0.5  , col = "darkgreen")
 
 
 
@@ -150,7 +153,7 @@ auc_all_peaks
 
 ```
 
-### peak detection
+### peak detection im normalen Chromatogramm
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 
 library(pracma)
@@ -181,53 +184,92 @@ points(decimal.values$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
 abline(v = decimal.values$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks
 abline(v = decimal.values$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks
 ``` 
-
-
 ### Area Under the Curve (AUC)
+
+Die wichtigen Peaks für die Beurteilung einer Gammopathie sind die Peaks beta1, beta2, und gamma. Für diesen Bereicht des Chromatogramms werden im folgenden die Flächen zwischen den jeweils benachbarten Messpunkten berechnet.
+
+```{r, message=FALSE, warning=FALSE}
+# Filtern des Datensatzes für den gewünschten ID-Bereich
+dat_filtered <- subset(dat, ID >= 160)
+
+# Filtern der Peaks entsprechend dem gefilterten Datensatz
+peaks_filtered <- peaks[peaks[, 2] >= 160, ]
+
+# Erstellen des Plots mit dem gefilterten Datensatz
+plot(decimal.values ~ ID, data = dat_filtered, type = "l", col = "blue", lwd = 2,
+     xlab = "ID", ylab = "Signal", main = "EP Chromatogramm mit detektierten Peaks (ID 160-300)")
+
+# Hinzufügen der Peak-Punkte
+points(dat_filtered$ID[peaks_filtered[, 2] - 156], peaks_filtered[, 1], col = "red", pch = 20)
+
+# Hinzufügen der vertikalen Linien für Peak-Start und -Ende
+abline(v = dat_filtered$ID[peaks_filtered[, 3] - 156], col = "blue", lty = 2)  # Start der Peaks
+abline(v = dat_filtered$ID[peaks_filtered[, 4] - 156], col = "blue", lty = 2)  # Ende der Peaks
+
+# Hinzufügen der vertikalen Linie bei ID 160
+abline(v = dat_filtered$ID[1], col = "orange", lty = 2)
+
+# Hinzufügen der Beschriftungen mit spezifischen Offsets
+text(x = dat_filtered$ID[peaks_filtered[, 2] - 159], 
+     y = peaks_filtered[, 1],
+     labels = c(#"Albumin", "alpha 1", "alpha 2", 
+                "beta 1", 
+                "beta 2", 
+                "gamma"),
+     pos = c(#2, 3, 3, 
+             3, 3, 4), offset = 1, col = "darkgreen")
+
+# Hinzufügen eines schattierten Bereichs zwischen ID 239 und 240
+polygon(c(dat_filtered$ID[83:84], rev(dat_filtered$ID[83:84])),
+        c(dat_filtered$decimal.values[83:84], rep(0, length(dat_filtered$decimal.values[83:84]))),
+        col = "gray", border = NA)
+
+
+```
+Die grau eingefärbte Beispielfläche oben hat eine Fläche von:  
+
+
+`r trapz(dat_filtered$ID[83:84], dat_filtered$decimal.values[83:84])`
+
+Somit werden pro Chromatogramm 139 Flächen (AUCs) als features berechnet.
+
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# calculate the area under the curve for all peaks
-
-auc_all_peaks <- apply(peaks, 1, function(peak) {
-  start_index <- peak[3]  # Start index
-  end_index <- peak[4]    # End index
-  peak_time <- decimal.values$ID[start_index:end_index]
-  peak_signal <- decimal.values$decimal.values[start_index:end_index]
-  trapz(peak_time, peak_signal)  # Trapezoidal rule for AUC
-})
-
-auc_all_peaks
-
+# calculate the area under the curve for a section
+dat$AUC <- rep(NA, nrow(dat))
+for (i in 1:(nrow(dat))){
+      dat$AUC[i] <- trapz(dat$ID[i:(i+1)], dat$decimal.values[i:(i+1)])
+}
+dat$AUC[is.na(dat$AUC)] <- 0
 ```
 
 
 ### Steigungen vor den Peaks
+Adäquat wird zwischen diesen Punktepaaren auch die Steigung berechnet
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# calculate the slopes before and after the peaks
-slopes <- numeric(0)
-for (i in 1:nrow(peaks)) {
-      slopes <- c(slopes, (decimal.values$decimal.values[peaks[i,2]-2] - decimal.values$decimal.values[peaks[i,2] - 5]) / ((peaks[i,2]-2) - (peaks[i,2] - 5)))
+# calculate the slopes between the points 160 to 300
+dat$slopes <- rep(0, nrow(dat))
+for (i in 1:(nrow(dat))) {
+      dat$slopes[i] <- (dat$decimal.values[i+1] - dat$decimal.values[i]) / ((dat$ID[i+1]) - (dat$ID[i]))
  }
+dat$slopes[is.na(dat$slopes)] <- 0
 
-slopes
+
 
 
 ```
 
 ### zweite Ableitung vor den Peaks 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# calculate the second derivative at the peaks
+# calculate the second derivatives 
 
-sp.der <- predict(smooth.spline(decimal.values$ID, decimal.values$decimal.values), deriv = 2)$y[peaks[,2]-0]
-sp.der
+dat$der <- rep(NA, nrow(dat))
+dat$der <- predict(smooth.spline(dat$ID, dat$decimal.values), deriv = 2)$y[1:(nrow(dat))]
+
+
 ```
 
-### Integration der Fläche unter den Peaks (AUC)
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# calculate the area under the curve
-AUC <- numeric(0)
-for (i in 1:nrow(peaks)) {
-      AUC <- c(AUC, sum(decimal.values$decimal.values[peaks[i,2]-2:peaks[i,2]+2]))
-}
+```{r}
+
 
 ```
 
