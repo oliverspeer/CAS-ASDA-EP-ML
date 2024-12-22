@@ -84,6 +84,69 @@ plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "bl
 <br> Fehlende Daten:  `r sum(is.na(EPcsv$curve))`
 
 
+<!-- ### Analyse der Befundtexte {.justify} -->
+<!-- Als "ground truth" für die Klassifizierung der Chromatogramme dienen die Befundtexte der Immunfixationen.    -->
+<!-- Im folgenden werden all Befundtext ausgewertet. -->
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #Entfernen bestimmter Strings -->
+<!-- # Laden des stringr-Pakets -->
+<!-- library(stringr) -->
+
+<!-- # Definieren der zu entfernenden Phrasen -->
+<!-- phrasen <- c("ohne wesentliche Veränderung", "keine wesentliche Veränderung", "ohne signifikante Veränderung", "keine signifikante Veränderung") -->
+
+<!-- # Erstellen eines regulären Ausdrucks, der alle Phrasen abdeckt -->
+<!-- pattern <- paste(phrasen, collapse = "|") -->
+
+<!-- # Funktion zum Entfernen der Phrasen und Bereinigen der Zeichenkette -->
+<!-- entferne_phrasen <- function(text) { -->
+<!--   # Entfernen der definierten Phrasen -->
+<!--   text <- str_remove_all(text, pattern) -->
+<!--   return(text) -->
+<!-- } -->
+
+<!-- # Anwenden der Funktion auf den gesamten Vektor -->
+<!-- EPcsv1$Bef.ImFix <- sapply(EPcsv$Bef.ImFix, entferne_phrasen) -->
+
+
+<!-- EPcsv1 <- EPcsv1 |>  -->
+<!--   mutate( -->
+<!--     suspicious.iFix = case_when( -->
+<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird suspicious NA -->
+<!--       grepl("M-Protein\\w|\\b(mono)?klonal(e|es|er|en)?\\b|Bande|Zonierung|Zonen|M-Protein|Para\\w|Inhomogen\\w|Unregelmässig\\w", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
+<!--       TRUE ~ 0 -->
+<!--     ), -->
+<!--     neg.phrase.iFix = case_when( -->
+<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA -->
+<!--       grepl("nicht|kein\\w|ohne|unauffällig", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
+<!--       TRUE ~ 0 -->
+<!--     ), -->
+<!--     neg.EP = case_when( -->
+<!--       is.na(Bef.EP) ~ NA,  # Falls Bef.EP NA ist, wird EP.neg NA -->
+<!--       grepl("unauffällig", Bef.EP, ignore.case = TRUE) ~ 1, -->
+<!--       TRUE ~ 0 -->
+<!--     ) -->
+<!--   ) -->
+
+<!-- # summarise the 0 and 1 of suspicious and neg.phrase and EP.neg -->
+
+<!-- ft <- EPcsv1  |>  -->
+<!--   pivot_longer(cols = c(suspicious.iFix, neg.phrase.iFix, neg.EP), names_to = "Variable", values_to = "Wert")  |>  -->
+<!--   filter(!is.na(Wert))  |>   # Entfernen von NA-Werten -->
+<!--   group_by(Variable, Wert)  |>  -->
+<!--   count()  |>  -->
+<!--   pivot_wider(names_from = Wert, values_from = n, values_fill = 0) %>% -->
+<!--   rename(Anzahl_0 = `0`, Anzahl_1 = `1`) -->
+<!-- ft |> -->
+<!--   flextable() -->
+
+
+
+<!-- ``` -->
+
+
+
 ### Patientendaten
 
 
@@ -133,31 +196,78 @@ bei insgesamt `r nrow(EPcsv)-sum(entf.count)` befundeten Chromatogrammen.
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library(stringr)
 
+# Definieren der zu entfernenden Phrasen
+phrasen <- c("ohne wesentliche Veränderung", "keine wesentliche Veränderung", "ohne signifikante Veränderung", "keine signifikante Veränderung", "Hinweis: Bitte markieren Sie die Analyse Immunfixation auf dem Auftragsformular  nicht", "Keine Veränderung zum Vorbefund.", "keine wesentlichen Veränderungen", "Keine wesentlichen Veränderungen", "keine Veränderung gegenüber dem", "Keine wesentliche Veränderung", "Keine Veränderung im Vergleich zum", "Keine signifikante Veränderung", "keine Veränderungen zum", "Keine signifikanten Unterschiede", "keine wesentlichen Änderungen", "Keine wesentlichen Änderungen", "Keine signifikant Veränderung", "keine signifikante Änderung", "Keine wesentliche Änderungen", "Keine wesenstliche Veränderung", "Keine Veränderungen zum", "Befund ohne wesentliche qualitative Veränderung", "Keine wesentliche Änderung", "keine wesentliche Änderung", "Keine signifikanten Veränderungen", "keine signifikanten Veränderungen", "ohne Veränderung")
+
+# Erstellen eines regulären Ausdrucks, der alle Phrasen abdeckt
+pattern <- paste(phrasen, collapse = "|")
+
+# Funktion zum Entfernen der Phrasen und Bereinigen der Zeichenkette
+entferne_phrasen <- function(text) {
+  # Entfernen der definierten Phrasen
+  text <- str_remove_all(text, pattern)
+  return(text)
+}
+
+# Anwenden der Funktion auf den gesamten Vektor
 EPcsv1 <- EPcsv |> 
+  mutate(Bef.ImFix = sapply(Bef.ImFix, entferne_phrasen))
+
+# EPcsv1$Bef.ImFix <- sapply(EPcsv$Bef.ImFix, entferne_phrasen)
+
+
+EPcsv1 <- EPcsv1 |>
   mutate(
-    suspicious = case_when(
+    suspicious.iFix = case_when(
       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird suspicious NA
       grepl("M-Protein\\w|\\b(mono)?klonal(e|es|er|en)?\\b|Bande|Zonierung|Zonen|M-Protein|Para\\w|Inhomogen\\w|Unregelmässig\\w", Bef.ImFix, ignore.case = TRUE) ~ 1,
       TRUE ~ 0
     ),
-    neg.phrase = case_when(
+    neg.phrase.iFix = case_when(
       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
       grepl("nicht|kein\\w|ohne", Bef.ImFix, ignore.case = TRUE) ~ 1,
+      TRUE ~ 0
+    ),
+    neg.EP = case_when(
+      is.na(Bef.EP) ~ NA,  # Falls Bef.EP NA ist, wird EP.neg NA
+      grepl("unauffällig", Bef.EP, ignore.case = TRUE) ~ 1,
       TRUE ~ 0
     )
   )
 
-positive_count <- EPcsv1 |> 
-  filter(suspicious == 1 & neg.phrase == 0) |> 
+
+string.analys <- EPcsv1 |> 
+  summarise(
+    poitive.iFix = sum(suspicious.iFix == 1 & neg.phrase.iFix == 0, na.rm = TRUE),
+    neg.phrase.iFix = sum(suspicious.iFix == 1 & neg.phrase.iFix == 1 | suspicious.iFix == 0 & neg.phrase.iFix == 0, na.rm = TRUE),
+    neg.EP = sum(neg.EP == 1, na.rm = TRUE),
+    neg.EP.pos.iFix = sum(neg.EP == 1 & suspicious.iFix == 1, na.rm = TRUE),
+    other = sum(suspicious.iFix == 0 & neg.phrase.iFix == 1, na.rm = TRUE)
+  )
+
+EPcsv.red <- EPcsv1 |> 
+  filter(neg.EP == 1 & suspicious.iFix == 1) |> 
+  select(ID, Bef.EP, Bef.ImFix, suspicious.iFix, neg.phrase.iFix, neg.EP)
+
+positive.iFix.count <- EPcsv1 |> 
+  filter(suspicious.iFix == 1 & neg.phrase.iFix == 0) |> 
   nrow()
 
-negative_count <- EPcsv1 |> 
-  filter(suspicious == 1 & neg.phrase == 1 | suspicious == 0 & neg.phrase == 0 ) |> 
+negative.iFix.count <- EPcsv1 |> 
+  filter(suspicious.iFix == 1 & neg.phrase.iFix == 1 | suspicious.iFix == 0 & neg.phrase.iFix == 0 ) |> 
   nrow() 
 
-other_count <- EPcsv1 |> 
-  filter(suspicious == 0 & neg.phrase == 1 ) |> 
+other.count <- EPcsv1 |> 
+  filter(suspicious.iFix == 0 & neg.phrase.iFix == 1 ) |> 
   nrow() 
+
+neg.EP.count <- EPcsv1 |> 
+  filter(neg.EP == 1) |> 
+  nrow()
+
+neg.EP.pos.iFix <- EPcsv1 |> 
+  filter(neg.EP == 1 & suspicious.iFix == 1) |> 
+  nrow()
  
 ```
 
@@ -168,7 +278,7 @@ ft <-  flextable(skim(EPcsv1))
 ft
 ```
 
-[Insgesamt sind `r sum(nrow(na.omit(EPcsv1)))` Immunfixationen befundet worden. Davon sind `r negative_count` als negativ (unauffällig, oder M-Protein nicht mehr nachweisbar) befundet worden. In `r positive_count` Fällen wurde ein M-Protein oder eine Zonierung gefunden. `r other_count` Immunfixationen wurden als nicht eindeutig beurteilt.]{style="color:#00008B;font-weight:bold"}
+[Insgesamt sind `r sum(nrow(na.omit(EPcsv1)))` Immunfixationen befundet worden. Davon sind `r negative.iFix.count` als negativ (unauffällig, oder M-Protein nicht mehr nachweisbar) befundet worden. In `r positive.iFix.count` Fällen wurde ein M-Protein oder eine Zonierung gefunden. `r other.count` Immunfixationen wurden als nicht eindeutig beurteilt.]{style="color:#00008B;font-weight:bold"}
 
 ### Chromatogramm Daten
 
