@@ -48,7 +48,30 @@ EPcsv <- read_csv2("epcdatawithcurve.csv", col_select = c(1:4, 6), col_types = "
 ```{r , echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
 # print(head(EPcsv, 10))
 # print(glimpse(EPcsv))
-ft <-  flextable(skim(EPcsv))
+my_skim <- skim_with(base = sfl(
+  #Datentyp = skim_type,
+  #Variable = skim_variable,
+  fehlend = n_missing,
+  komplett = n_complete,
+  n = length
+))
+ft <-  flextable(my_skim(EPcsv))|> 
+  set_header_labels(skim_type = "Datentyp",
+                    skim_variable = "Variable",
+                    n_missing = "Fehlende Werte",
+                    n = "Anzahl",
+                    numeric.mean = "Mittelwert",
+                    numeric.sd = "Standardabweichung",
+                    numeric.p25 = "25%-Quantil",
+                    numeric.p50 = "50%-Quantil",
+                    numeric.p75 = "75%-Quantil",
+                    numeric.p0 = "Minimum",
+                    numeric.p100 = "Maximum",
+                    numeric.hist = "Histogramm",
+                    factor.n_unique =" Anzahl Faktoren") |>
+  autofit() |>
+  bold(part = "header") |>
+  align(align = "center", part = "all")
 ft
 ```
 
@@ -56,11 +79,11 @@ ft
 
 [\$TaNu:]{.underline} Eineindeutige Tages-Nummer (TaNu) des Auftrags. Mit ihr können auch Patientendaten und weitere Resultate zugeordnet werden. Automatisch bei Auftragserfassung vergeben, sind immer vorhanden. <br> Fehlende Daten: `r sum(is.na(EPcsv$TaNu))`
 
-[\$Bef.EP:]{.underline} String-Daten, Befundtext / Interpretation die von Labormitarbeitenden zu den Chromatogrammen erstellt wurden. Diese Text enthalten wiederkehrende Formulierungen wie z. Bsp. "unauffällig", "unauffällige Charakterisitik", oder auch "M-Protein nachweisbar", "Fraktion erhöht", "Fraktion vermindert". <br> Fehlende Daten: `r sum(is.na(EPcsv$Bef.EP))` 
+[\$Bef.EP:]{.underline} String-Daten, Befundtexte / Interpretationen, die von Labormitarbeitenden zu den Chromatogrammen manuell erstellt wurden. Diese Text enthalten wiederkehrende Formulierungen wie z. Bsp. "unauffällig", "unauffällige Charakterisitik", oder auch "M-Protein nachweisbar", "Fraktion erhöht", "Fraktion vermindert". Diese sind jedoch nicht standardisiert, kommen in vielen Varianten vor inkl Tippfehlern. <br> Fehlende Daten: `r sum(is.na(EPcsv$Bef.EP))` 
 
-[\$Bef.ImFix:]{.underline} Befundtext / Interpretation die von Labormitareitern zu den Immunfixationen (falls vorhanden) erstellt wurden. Auch hier werden ähnliche Formulierungen verwendet wie bei der EP-Befundung. <br> Fehlende Daten: `r sum(is.na(EPcsv$Bef.ImFix))`
+[\$Bef.ImFix:]{.underline} Befundtexte / Interpretationen, die von Labormitareitern zu den Immunfixationen (falls vorhanden) erstellt wurden. Auch hier werden ähnliche Formulierungen verwendet wie bei der EP-Befundung. Diese sind jedoch nicht standardisiert, kommen in vielen Varianten vor inkl Tippfehlern.<br> Fehlende Daten: `r sum(is.na(EPcsv$Bef.ImFix))`
 
-[\$curve:]{.underline} Sebia speichert die Protein-Elektrophorese-Daten im hexadecimalen Format [@ChenWebpara2022]. <br>  Je String 1200 Stellen, also 300 Hexadezimalwerte. Nach Konversion ins Dezimal-System sind das also 300 Datenpunkte pro Chromatogramm. 
+[\$curve:]{.underline} Sebia speichert die Protein-Elektrophorese-Daten im hexadecimalen Format [@chenLightweightOpenSource2022]. <br>  Je String 1200 Stellen, also 300 Hexadezimalwerte. Nach Konversion ins Dezimal-System sind das also 300 Datenpunkte pro Chromatogramm. 
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 hex.string <- EPcsv$curve[EPcsv$ID == 1691]
@@ -84,66 +107,6 @@ plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "bl
 <br> Fehlende Daten:  `r sum(is.na(EPcsv$curve))`
 
 
-<!-- ### Analyse der Befundtexte {.justify} -->
-<!-- Als "ground truth" für die Klassifizierung der Chromatogramme dienen die Befundtexte der Immunfixationen.    -->
-<!-- Im folgenden werden all Befundtext ausgewertet. -->
-
-<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- #Entfernen bestimmter Strings -->
-<!-- # Laden des stringr-Pakets -->
-<!-- library(stringr) -->
-
-<!-- # Definieren der zu entfernenden Phrasen -->
-<!-- phrasen <- c("ohne wesentliche Veränderung", "keine wesentliche Veränderung", "ohne signifikante Veränderung", "keine signifikante Veränderung") -->
-
-<!-- # Erstellen eines regulären Ausdrucks, der alle Phrasen abdeckt -->
-<!-- pattern <- paste(phrasen, collapse = "|") -->
-
-<!-- # Funktion zum Entfernen der Phrasen und Bereinigen der Zeichenkette -->
-<!-- entferne_phrasen <- function(text) { -->
-<!--   # Entfernen der definierten Phrasen -->
-<!--   text <- str_remove_all(text, pattern) -->
-<!--   return(text) -->
-<!-- } -->
-
-<!-- # Anwenden der Funktion auf den gesamten Vektor -->
-<!-- EPcsv1$Bef.ImFix <- sapply(EPcsv$Bef.ImFix, entferne_phrasen) -->
-
-
-<!-- EPcsv1 <- EPcsv1 |>  -->
-<!--   mutate( -->
-<!--     suspicious.iFix = case_when( -->
-<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird suspicious NA -->
-<!--       grepl("M-Protein\\w|\\b(mono)?klonal(e|es|er|en)?\\b|Bande|Zonierung|Zonen|M-Protein|Para\\w|Inhomogen\\w|Unregelmässig\\w", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
-<!--       TRUE ~ 0 -->
-<!--     ), -->
-<!--     neg.phrase.iFix = case_when( -->
-<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA -->
-<!--       grepl("nicht|kein\\w|ohne|unauffällig", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
-<!--       TRUE ~ 0 -->
-<!--     ), -->
-<!--     neg.EP = case_when( -->
-<!--       is.na(Bef.EP) ~ NA,  # Falls Bef.EP NA ist, wird EP.neg NA -->
-<!--       grepl("unauffällig", Bef.EP, ignore.case = TRUE) ~ 1, -->
-<!--       TRUE ~ 0 -->
-<!--     ) -->
-<!--   ) -->
-
-<!-- # summarise the 0 and 1 of suspicious and neg.phrase and EP.neg -->
-
-<!-- ft <- EPcsv1  |>  -->
-<!--   pivot_longer(cols = c(suspicious.iFix, neg.phrase.iFix, neg.EP), names_to = "Variable", values_to = "Wert")  |>  -->
-<!--   filter(!is.na(Wert))  |>   # Entfernen von NA-Werten -->
-<!--   group_by(Variable, Wert)  |>  -->
-<!--   count()  |>  -->
-<!--   pivot_wider(names_from = Wert, values_from = n, values_fill = 0) %>% -->
-<!--   rename(Anzahl_0 = `0`, Anzahl_1 = `1`) -->
-<!-- ft |> -->
-<!--   flextable() -->
-
-
-
-<!-- ``` -->
 
 
 
@@ -160,19 +123,38 @@ query <- "SELECT *
                     
     pat.data <- dbGetQuery(con, query)
     
-# print(glimpse(pat.data))
-library(skimr)
-ft <- flextable(skim(pat.data))
+
+ft <- my_skim(pat.data)|> 
+  select(skim_variable, skim_type) |>
+  flextable() |>
+  set_header_labels(skim_variable = "Variable",
+                    skim_type = "Datentyp"#,
+                    # n_missing = "Fehlende Werte",
+                    # n = "Anzahl",
+                    # numeric.mean = "Mittelwert",
+                    # numeric.sd = "Standardabweichung",
+                    # numeric.p25 = "25%-Quantil",
+                    # numeric.p50 = "50%-Quantil",
+                    # numeric.p75 = "75%-Quantil",
+                    # numeric.p0 = "Minimum",
+                    # numeric.p100 = "Maximum",
+                    # numeric.hist = "Histogramm",
+                    # factor.n_unique =" Anzahl Faktoren"
+                    )|>
+  autofit() |>
+  bold(part = "header") |>
+  align(align = "center", part = "all")
 ft
 ```
 
+#### Zusammenfassung {.unnumbered}
 Da alle involvierten Prozesse der Datengeneration und der Datensammlung automatisiert und damit standardisiert sind, sind die Daten qualitativ hochwertig. Die Quantität der Daten mit `r nrow(EPcsv)` Datensätzen ist für einige unsupervised und auch supervised Model-Ansätze ausreichend, für Ansätze mit z. Bsp Tensor Flow sind es evtl. zu wenig Datensätze. 
 
 ## Untersuchen der Daten: Explorative Datenanalyse {.justify}
 
 ### String Daten in den Befunden
 #### EP Befunde
-
+Eventuell könnten die EP-Befundtexte als Vergleich zu den Vorhersagen der Modelle verwendet werden. 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library(stringr)
 m.grad.count <- str_count(EPcsv$Bef.EP, regex("gradient", ignore_case = TRUE))
@@ -190,42 +172,143 @@ In den Befundtexten kommt insgesamt das Wort <br>
 
 
 Auf den ersten Blick scheinen in den Daten `r sum(normal.count)` unauffällige Befunde vorzukommen,
-bei insgesamt `r nrow(EPcsv)-sum(entf.count)` befundeten Chromatogrammen.
+bei insgesamt `r nrow(EPcsv)-sum(entf.count)` befundeten Chromatogrammen. Allerdings, wie sich unten zeigt, sind diese Befundtexte nicht standardisiert und sind für selbe Aussagen relativ variabel formuliert und enthalten Tippfehler. Sollten dieser Befundetexte zum Vergelich herangezogen werden, müssten sie genauer analysiert und klassifiziert werden.
 
 #### Immunfixation Befunde
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
+Wie in [@elfertExpertlevelDetectionMproteins2024] beschrieben, brauchen wir für die Klassifizierung der EP-Chromatogramme in den Trainingsdaten eine "ground truth" welche durch eine andere Methode erstellt werden sollte. In unserem Setting sind wir auf die Befundtexte der Immunfixationen (iFix) angewiesen.
+Daher ist es im folgenden wichtig diese gut zu untersuchen.
+
+#### Bereinigung und Tokenisierung der Befundtexte
+Kleinschreibung, Entfernen von Satzzeichen und Stopwörtern, sowie Tokenisierung der Befundtexte.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Tokenisierung der imFix-Befundtexte
+library(tidytext)
+library(stringr)
+library(stopwords)
+EPcsv1 <- EPcsv |>
+  mutate(
+    Bef.ImFix_cleaned = gsub("\\([A-Z]{3}\\)", "", Bef.ImFix),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "[[:punct:]]", ""),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, " +", " "),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "-", ""),
+    Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned)
+  ) |> 
+  filter(!Bef.ImFix_cleaned %in% stopwords("de"))|> 
+  unnest_tokens(Bef.ImFix_cleaned, Bef.ImFix_cleaned, token = "words", to_lower = TRUE, drop = FALSE) 
+```
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Tokenisierung der EP-Befundtexte
+library(tidytext)
+library(stringr)
+library(stopwords)
+EPcsv1 <- EPcsv1 |>
+  mutate(
+    # Bef.EP_cleaned = str_to_lower(Bef.EP, locale = "de_CH"),
+    Bef.EP_cleaned = gsub("\\([A-Z]{3}\\)", "", Bef.EP),
+    # Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "[[:punct:]]", ""),
+    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "[[:punct:]]", ""),
+    # Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "),
+    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "),
+    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "-", ""),
+    # Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "),
+    # Bef.EP_cleaned = str_squish(Bef.EP_cleaned, " +", " "),
+    Bef.EP_cleaned = str_squish(Bef.EP_cleaned)
+  ) |> 
+  filter(!Bef.EP_cleaned %in% stopwords("de"))|> 
+  unnest_tokens(Bef.EP_cleaned, Bef.EP_cleaned, token = "words", to_lower = TRUE, drop = FALSE) 
+```
+
+```{r, echo=T, message=FALSE, warning=FALSE}
 library(stringr)
 
 # Definieren der zu entfernenden Phrasen
-phrasen <- c("ohne wesentliche Veränderung", "keine wesentliche Veränderung", "ohne signifikante Veränderung", "keine signifikante Veränderung", "Hinweis: Bitte markieren Sie die Analyse Immunfixation auf dem Auftragsformular  nicht", "Keine Veränderung zum Vorbefund.", "keine wesentlichen Veränderungen", "Keine wesentlichen Veränderungen", "keine Veränderung gegenüber dem", "Keine wesentliche Veränderung", "Keine Veränderung im Vergleich zum", "Keine signifikante Veränderung", "keine Veränderungen zum", "Keine signifikanten Unterschiede", "keine wesentlichen Änderungen", "Keine wesentlichen Änderungen", "Keine signifikant Veränderung", "keine signifikante Änderung", "Keine wesentliche Änderungen", "Keine wesenstliche Veränderung", "Keine Veränderungen zum", "Befund ohne wesentliche qualitative Veränderung", "Keine wesentliche Änderung", "keine wesentliche Änderung", "Keine signifikanten Veränderungen", "keine signifikanten Veränderungen", "ohne Veränderung")
+phrasen <- c("ohne wesentliche Veränderung", 
+             "keine wesentliche Veränderung", 
+             "ohne signifikante Veränderung", 
+             "keine signifikante Veränderung", 
+             "Hinweis: Bitte markieren Sie die Analyse Immunfixation auf dem Auftragsformular  nicht", 
+             "Keine Veränderung zum Vorbefund.", 
+             "keine wesentlichen Veränderungen", 
+             "Keine wesentlichen Veränderungen", 
+             "keine Veränderung gegenüber dem", 
+             "Keine wesentliche Veränderung", 
+             "Keine Veränderung im Vergleich zum", 
+             "Keine signifikante Veränderung", 
+             "keine Veränderungen zum", 
+             "Keine signifikanten Unterschiede", 
+             "keine wesentlichen Änderungen", 
+             "Keine wesentlichen Änderungen", 
+             "Keine signifikant Veränderung", 
+             "keine signifikante Änderung", 
+             "Keine wesentliche Änderungen", 
+             "Keine wesenstliche Veränderung", 
+             "Keine Veränderungen zum", 
+             "Befund ohne wesentliche qualitative Veränderung", 
+             "Keine wesentliche Änderung", 
+             "keine wesentliche Änderung", 
+             "Keine signifikanten Veränderungen", 
+             "keine signifikanten Veränderungen", 
+             "ohne Veränderung",
+             "unverändert gegenüber dem Vorbfund",
+             "Kein signifikanter Unterschied zum vorherigen",
+             "Im Vergleich zum Vorbefund unverändert")
+
 
 # Erstellen eines regulären Ausdrucks, der alle Phrasen abdeckt
-pattern <- paste(phrasen, collapse = "|")
+vorbef <- paste(phrasen, collapse = "|")
 
-# Funktion zum Entfernen der Phrasen und Bereinigen der Zeichenkette
-entferne_phrasen <- function(text) {
-  # Entfernen der definierten Phrasen
-  text <- str_remove_all(text, pattern)
-  return(text)
-}
+vorb.count <- str_count(EPcsv$Bef.ImFix, regex(vorbef, ignore_case = T))
+```
+[In den Immunfixationen kommen insgesamt `r sum(vorb.count, na.rm = T)` Verweise auf historische Befunde vor, zu denen im Vergleich keine Veränderung erkennbar war. Diese Verweise bringen also Wörter wie "keine" und "ohne" in die Befundtexte mit ein. Diese sind jedoch in einem anderen Zusammenhang wie z. Bsp. "keine monoklonale Bande erkennbar". Diese müssen also unterschieden werden.]{style="color:#00008B;font-weight:bold"}
 
-# Anwenden der Funktion auf den gesamten Vektor
-EPcsv1 <- EPcsv |> 
-  mutate(Bef.ImFix = sapply(Bef.ImFix, entferne_phrasen))
+
+```{r, echo=T, message=FALSE, warning=FALSE}
+# Funktion zum Entfernen der Phrase
+# entferne_phrasen <- function(text) {
+#   # Entfernen der definierten Phrasen
+#   text <- str_remove_all(text, vorbef)
+#   return(text)
+# }
+# 
+# # Anwenden der Funktion auf den gesamten Vektor
+# EPcsv1 <- EPcsv |> 
+#   mutate(Bef.ImFix = sapply(Bef.ImFix, entferne_phrasen))
 
 # EPcsv1$Bef.ImFix <- sapply(EPcsv$Bef.ImFix, entferne_phrasen)
 
 
-EPcsv1 <- EPcsv1 |>
+EPcsv1 <- EPcsv |>
   mutate(
-    suspicious.iFix = case_when(
+    pos.string.iFix = case_when(
       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird suspicious NA
-      grepl("M-Protein\\w|\\b(mono)?klonal(e|es|er|en)?\\b|Bande|Zonierung|Zonen|M-Protein|Para\\w|Inhomogen\\w|Unregelmässig\\w", Bef.ImFix, ignore.case = TRUE) ~ 1,
+      grepl("\\b(M-)?Protein(e|s|er|en)?\\b|\\b(mono)?klonal(e|es|er|en)?\\b|Bande|Zonierung|Zonen|M-Protein|Para\\w|Inhomogen\\w|Unregelmässig\\w|monolonal\\w|monnolonal\\w|Gradienten\\w|Gammopathie\\w|M-Komponente|monoklonlen|biklonal|M-Gradienten|klonalen|monoklonalen", Bef.ImFix, ignore.case = TRUE) ~ 1,
       TRUE ~ 0
     ),
-    neg.phrase.iFix = case_when(
+    neg.iFix = case_when(
+      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.iFix NA
+      grepl("unauffällig|unaufällig|unauffälllig|unaufffällig|unaufffälllig|unuaffällig|ünauffällig|unauffällg|unauffälig|unaufälig|negativ|unauffàllig|uanuffällig|uanauffällig", Bef.ImFix, ignore.case = TRUE) ~ 1,
+      TRUE ~ 0
+    ),
+    polyklon.string.iFix = case_when(
       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
-      grepl("nicht|kein\\w|ohne", Bef.ImFix, ignore.case = TRUE) ~ 1,
+      grepl("polyklon|Verstärkung|verstärkt|poliklon", Bef.ImFix, ignore.case = TRUE) ~ 1,
+      TRUE ~ 0
+    ),
+    neg.string.iFix = case_when(
+      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
+      grepl("nicht|kein\\w|ohne|kein", Bef.ImFix, ignore.case = TRUE) ~ 1,
+      TRUE ~ 0
+    ),
+    vorb.string.iFix = case_when(
+      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
+      grepl(vorbef, Bef.ImFix, ignore.case = TRUE) ~ 1,
+      TRUE ~ 0
+    ),
+    no.string.iFix = case_when(
+      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
+      grepl("folgt|entfernt|SISTIERT|#NAME", Bef.ImFix, ignore.case = TRUE) ~ 1,
       TRUE ~ 0
     ),
     neg.EP = case_when(
@@ -235,46 +318,52 @@ EPcsv1 <- EPcsv1 |>
     )
   )
 
+df <- as.data.frame(table(EPcsv1$neg.iFix, EPcsv1$neg.string.iFix, EPcsv1$pos.string.iFix,EPcsv1$polyklon.string.iFix, EPcsv1$vorb.string.iFix, EPcsv1$no.string.iFix))
+colnames(df) <- c("neg.iFix", "neg.string.iFix", "pos.string.iFix", "polyklon.string.iFix", "VerwVorbefund", "KeinText", "Anzahl")
+flextable(df)
 
-string.analys <- EPcsv1 |> 
-  summarise(
-    poitive.iFix = sum(suspicious.iFix == 1 & neg.phrase.iFix == 0, na.rm = TRUE),
-    neg.phrase.iFix = sum(suspicious.iFix == 1 & neg.phrase.iFix == 1 | suspicious.iFix == 0 & neg.phrase.iFix == 0, na.rm = TRUE),
-    neg.EP = sum(neg.EP == 1, na.rm = TRUE),
-    neg.EP.pos.iFix = sum(neg.EP == 1 & suspicious.iFix == 1, na.rm = TRUE),
-    other = sum(suspicious.iFix == 0 & neg.phrase.iFix == 1, na.rm = TRUE)
-  )
+# save df as excel file
+# write.xlsx(df, "Befundanalyse.xlsx")
 
-EPcsv.red <- EPcsv1 |> 
-  filter(neg.EP == 1 & suspicious.iFix == 1) |> 
-  select(ID, Bef.EP, Bef.ImFix, suspicious.iFix, neg.phrase.iFix, neg.EP)
+# string.analys <- EPcsv1 |> 
+#   summarise(
+#     poitive.iFix = sum(suspicious.iFix == 1 & neg.phrase.iFix == 0, na.rm = TRUE),
+#     neg.phrase.iFix = sum(suspicious.iFix == 1 & neg.phrase.iFix == 1 | suspicious.iFix == 0 & neg.phrase.iFix == 0, na.rm = TRUE),
+#     neg.EP = sum(neg.EP == 1, na.rm = TRUE),
+#     neg.EP.pos.iFix = sum(neg.EP == 1 & suspicious.iFix == 1, na.rm = TRUE),
+#     other = sum(suspicious.iFix == 0 & neg.phrase.iFix == 1, na.rm = TRUE)
+#   )
 
-positive.iFix.count <- EPcsv1 |> 
-  filter(suspicious.iFix == 1 & neg.phrase.iFix == 0) |> 
+# EPcsv.red <- EPcsv1 |> 
+#   filter(neg.EP == 1 & suspicious.iFix == 1) |> 
+#   select(ID, Bef.EP, Bef.ImFix, suspicious.iFix, neg.phrase.iFix, neg.EP)
+# 
+positive.iFix.count <- EPcsv1 |>
+  filter(pos.string.iFix == 1 & neg.iFix == 0) |>
   nrow()
 
-negative.iFix.count <- EPcsv1 |> 
-  filter(suspicious.iFix == 1 & neg.phrase.iFix == 1 | suspicious.iFix == 0 & neg.phrase.iFix == 0 ) |> 
-  nrow() 
-
-other.count <- EPcsv1 |> 
-  filter(suspicious.iFix == 0 & neg.phrase.iFix == 1 ) |> 
-  nrow() 
-
-neg.EP.count <- EPcsv1 |> 
-  filter(neg.EP == 1) |> 
+ negative.iFix.count <- EPcsv1 |> 
+   filter(pos.string.iFix == 1 & neg.string.iFix == 1 | pos.string.iFix == 0 & neg.string.iFix == 0 | neg.iFix == 0)  |> 
+   nrow() 
+# 
+other.count <- EPcsv1 |>
+  filter(pos.string.iFix == 0 & neg.string.iFix == 1 ) |>
   nrow()
 
-neg.EP.pos.iFix <- EPcsv1 |> 
-  filter(neg.EP == 1 & suspicious.iFix == 1) |> 
-  nrow()
- 
+# neg.EP.count <- EPcsv1 |> 
+#   filter(neg.EP == 1) |> 
+#   nrow()
+# 
+# neg.EP.pos.iFix <- EPcsv1 |> 
+#   filter(neg.EP == 1 & suspicious.iFix == 1) |> 
+#   nrow()
+#  
 ```
 
 ```{r , echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
 # print(head(EPcsv, 10))
 # print(glimpse(EPcsv))
-ft <-  flextable(skim(EPcsv1))
+ft <-  flextable(my_skim(EPcsv1))
 ft
 ```
 
