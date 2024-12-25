@@ -175,20 +175,20 @@ text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels 
 
 
 ``` 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# calculate the area under the curve for all peaks
-
-auc_all_peaks <- apply(peaks, 1, function(peak) {
-  start_index <- peak[3]  # Start index
-  end_index <- peak[4]    # End index
-  peak_time <- decimal.values$ID[start_index:end_index]
-  peak_signal <- decimal.values$decimal.values[start_index:end_index]
-  trapz(peak_time, peak_signal)  # Trapezoidal rule for AUC
-})
-
-auc_all_peaks
-
-```
+# ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# # calculate the area under the curve for all peaks
+# 
+# auc_all_peaks <- apply(peaks, 1, function(peak) {
+#   start_index <- peak[3]  # Start index
+#   end_index <- peak[4]    # End index
+#   peak_time <- decimal.values$ID[start_index:end_index]
+#   peak_signal <- decimal.values$decimal.values[start_index:end_index]
+#   trapz(peak_time, peak_signal)  # Trapezoidal rule for AUC
+# })
+# 
+# auc_all_peaks
+#
+#```
 
 ### peak detection im normalen Chromatogramm
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
