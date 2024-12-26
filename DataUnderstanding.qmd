@@ -179,24 +179,273 @@ Wie in [@elfertExpertlevelDetectionMproteins2024] beschrieben, brauchen wir für
 Daher ist es im folgenden wichtig diese gut zu untersuchen.
 
 #### Bereinigung und Tokenisierung der Befundtexte
-Kleinschreibung, Entfernen von Satzzeichen und Stopwörtern, sowie Tokenisierung der Befundtexte.
+Kleinschreibung, Entfernen von Satzzeichen und Stopwörtern, sowie Tokenisierung der Befundtexte. daraus ergibt sich folgende Häufigkeitsverteilung der Wörter in den iFix-Befundtexten:
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Tokenisierung der imFix-Befundtexte
 library(tidytext)
 library(stringr)
 library(stopwords)
+monate <- c(
+  "Januar", "Jan",
+  "Februar", "Feb",
+  "März", "März",
+  "April", "Apr",
+  "Mai", "Mai",
+  "Juni", "Jun",
+  "Juli", "Jul",
+  "August", "Aug",
+  "September", "Sept",
+  "Oktober", "Okt",
+  "November", "Nov",
+  "Dezember", "Dez",
+  "Monat", "Monaten", "monaten"
+) |> 
+  paste(collapse = "|")
+
+# stopwords anpassen, da in den tokens "nicht" enthalten bleiben soll
+stopwords.olli <- setdiff(stopwords("de", "stopwords-iso"), c("nicht", "keine", "ohne"))
+stopwords.olli.col <- paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
+
 EPcsv1 <- EPcsv |>
   mutate(
-    Bef.ImFix_cleaned = gsub("\\([A-Z]{3}\\)", "", Bef.ImFix),
+    Bef.ImFix_cleaned = gsub("\\([A-Za-zäöüÄÖÜ]+(/[A-Za-zäöüÄÖÜ]+)?\\)", "", Bef.ImFix),
+    Bef.ImFix_cleaned = gsub("[0-9]+", "", Bef.ImFix_cleaned),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, monate, ""),
     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "[[:punct:]]", ""),
     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, " +", " "),
     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "-", ""),
     Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned)
   ) |> 
-  filter(!Bef.ImFix_cleaned %in% stopwords("de"))|> 
-  unnest_tokens(Bef.ImFix_cleaned, Bef.ImFix_cleaned, token = "words", to_lower = TRUE, drop = FALSE) 
+  unnest_tokens(Bef.ImFix_cleaned, Bef.ImFix_cleaned, token = "words", to_lower =TRUE, drop = FALSE) |> 
+  filter(!Bef.ImFix_cleaned %in% stopwords.olli)
+
+Bef.ImFix.freq <- EPcsv1 |> 
+  count(Bef.ImFix_cleaned, sort = TRUE) |> 
+  arrange(Bef.ImFix_cleaned)
+
+Bef.ImFix.freq |> 
+  arrange(desc(n)) |>
+  head(20) |> 
+  flextable()
+
 ```
+
+Sehr wahrscheilich gibt es in den Befundtexten Wort-Varianten und Tippfehler. Daher werden einige Wörter, die in den Befundtexten vorkommen, auf ihre Ähnlichkeit zu wichtigen Begriffen wie "monoklonal", "M-Protein", "polyklonal", "akut-Phase", "immunreaktiv", "nachweisbar", "unauffällig", "Veränderung", "Vorbefund", "entfernt", "sistiert" überprüft.
+
+#### Varianten des Wortes "monoklonal"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("monoklon", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 5) |> 
+  arrange(desc(n)) |>  
+  flextable() 
+```
+
+#### Varianten des Wortes "M-Protein"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("mprotein", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 4)|>
+  arrange(desc(n)) |>
+  flextable() 
+```
+
+#### Varianten des Wortes "polyklonal"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("polyklon", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 6)|>
+  arrange(desc(n)) |>
+  flextable() 
+```
+#### Varianten des Wortes "akut-Phase"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("akutphase", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 5)|>
+  arrange(desc(n)) |>
+  flextable() 
+```
+
+#### Varianten des Wortes "immunreaktiv"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("immunreaktiv", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 5)|>
+  arrange(desc(n)) |>
+  flextable() 
+```
+
+#### Varianten des Wortes "nachweisbar"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("nachweisbar", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 7)|>
+  arrange(desc(n)) |>
+  flextable() 
+
+```
+
+#### Varianten des Wortes "unauffällig"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("unauffällig", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 5)|>
+  arrange(desc(n)) |>
+  flextable() 
+
+```
+#### Varianten des Wortes "Veränderung"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("veränderung", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 5)|>
+  arrange(desc(n)) |>
+  flextable() 
+```
+
+
+#### Varianten des Wortes "Vorbefund"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("vorbefund", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 4)|>
+  arrange(desc(n)) |>
+  flextable() 
+```
+
+#### Varianten des Wortes "entfernt"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("entfernt", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 4)|>
+  arrange(desc(n)) |>
+  flextable() 
+```
+
+#### Varianten des Wortes "sistiert"
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+
+Bef.ImFix.freq |> 
+  mutate(Distanz = stringdist("sistiert", Bef.ImFix_cleaned, method = "lv")) |> 
+  filter(Distanz < 4)|> 
+  arrange(desc(n)) |>
+  flextable() 
+```
+
+#### Kontext: Beziehung zwischen Wörtern, n-grams
+Der Kontext der einzelenen Wörter ist wichtig. Z. Bsp. "kein M-Protein nachweisbar" ist ein anderer Kontext als "M-Protein nachweisbar". Daher ist es wichtig, dass diese Schlüsselwörter in ihrem Kontext betrachtet werden.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(tidytext)
+
+#Bef.ImFix.freq.ngram <- EPcsv |>
+EPcsv2 <- EPcsv |>
+  mutate(
+    Bef.ImFix_cleaned = gsub("\\([^)]*\\)", "", Bef.ImFix),
+    Bef.ImFix_cleaned = gsub("[0-9]+", "", Bef.ImFix_cleaned),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, monate, ""),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "[[:punct:]]", " "),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, " +", " "),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "-", "")#,
+    #Bef.ImFix_cleaned = gsub(stopwords.olli.col, "", Bef.ImFix_cleaned)
+    #Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned)
+  ) |> 
+  unnest_tokens(trigram, Bef.ImFix_cleaned, token = "ngrams", n = 3, to_lower =TRUE, drop = FALSE) |>
+  filter(!is.na(trigram))  |> 
+  separate(trigram, c("word1", "word2", "word3"), sep = " ")  #|> 
+  # filter(!word1 %in% stopwords.olli,
+  #        !word2 %in% stopwords.olli,
+  #        !word3 %in% stopwords.olli)
+#  filter(!Bef.ImFix_cleaned %in% stopwords.olli)#|> 
+#  arrange(Bef.ImFix, Bef.ImFix_cleaned)#|> 
+#  count(Bef.ImFix_cleaned, sort = TRUE)
+```
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#show the first 50 lines from EPcsv2, only the columns Bef.ImFix and Bef.ImFix_cleaned
+EPcsv2 |> 
+  select(Bef.ImFix, word1, word2, word3) |> 
+  head(10) |> 
+  flextable()
+```
+
+Weiter werden die häufigsten n-Gramme in den Befundtexten untersucht:
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+EPcsv2 |> 
+   na.omit() |>
+   count(word1, word2, word3, sort = TRUE) |> 
+   arrange(desc(n)) |> 
+   head(20) |> 
+   flextable()
+```
+
+Im weiteren werden Kombinationen mit dem Wort "nicht" & "ohne" untersucht:
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+EPcsv2 |> 
+   na.omit() |>
+   mutate(distance = stringdist("nicht", word1, method = "lv")) %>%
+   filter(distance < 2) %>%
+   count( word1, word2, word3, sort = TRUE) |> 
+   arrange(desc(n)) |> 
+   head(20) |> 
+   flextable()
+```
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+EPcsv2 |> 
+   na.omit() |>
+   mutate(distance = stringdist("ohne", word1, method = "lv")) %>%
+   filter(distance < 2) %>%
+   count( word1, word2, word3, sort = TRUE) |> 
+   arrange(desc(n)) |> 
+   head(20) |> 
+   flextable()
+```
+
+Im weiteren werden Kombinationen mit den Wörtern "keine" & "kein" untersucht:
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+EPcsv2 |> 
+   na.omit() |>
+   mutate(distance = stringdist(c("keine", "kein"), word1, method = "lv")) %>%
+   filter(distance < 1) %>%
+   count( word1, word2, word3, sort = TRUE) |> 
+   arrange(desc(n)) |> 
+   head(20) |> 
+   flextable()
+```
+
+Es scheint auch informativ die Häufigkeiten der etwas bereinigten Befundtexte zu untersuchen:
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#Bef.ImFix.freq.ngram <- 
+EPcsv2 |> 
+  count(Bef.ImFix_cleaned, sort = TRUE) |> 
+  arrange(desc(n)) |>
+  head(30) |>
+  flextable() |> 
+  width(j = 1, width = 6.5)
+  
+```
+Daraus wird klar, dass es viele Wörter gibt, die in den Befundtexten vorkommen, die keine relevante Information für eine spätere Klassifizierung transportieren. z.Bsp "weiterhin", "des", "bekannten", "vom", "Typ". \b
+Es ist zu überlegen, ob diese als Stoppwörter in der Datapreparation entfernt werden.
+
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Tokenisierung der EP-Befundtexte
