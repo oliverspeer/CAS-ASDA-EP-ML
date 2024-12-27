@@ -72,10 +72,137 @@ EPcsv <- read_csv2("epcdatawithcurve.csv", col_select = c(1:4, 6), col_types = "
   rename_with(~ c("ID", "TaNu", "Bef.EP", "Bef.ImFix", "curve"))
 #str(EPcsv)
 ```
-Datensätze ohne Chromatogramm-Daten werden entfernt.
+Datensätze ohne Chromatogramm-Daten, und auch "SISTIERTE" und "entfernte"  Datensätze werden entfernt.<br>
+Kontrolle der Daten nach dem Filtern:
+
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # filtern der Daten EPcsv1$curve !NA
-EPcsv1 <- EPcsv[!is.na(EPcsv$curve),]
+EPcsv1 <- EPcsv[!is.na(EPcsv$curve)&!is.na(EPcsv$Bef.ImFix),] |>   
+  filter(!grepl("SISTIERT|entfernt", Bef.EP, ignore.case = TRUE)) |> 
+  filter(!grepl("SISTIERT|entfernt", Bef.ImFix, ignore.case = TRUE))
+ 
+```
+- Von `r sum(is.na(EPcsv$curve))` Datensätzen ohne Chromatogramm-Daten  wurden `r sum(is.na(EPcsv$curve)) - sum(is.na(EPcsv1$curve))` Datensätze entfernt.
+
+- Von `r sum(is.na(EPcsv$Bef.ImFix))` Datensätzen ohne iFix-Befundtexte wurden `r sum(is.na(EPcsv$Bef.ImFix)) - sum(is.na(EPcsv1$Bef.ImFix))` Datensätze entfernt.
+
+- Von `r sum(EPcsv$Bef.ImFix == "SISTIERT", na.rm = T)` sistierten iFix-Aufträgen wurden `r sum(EPcsv$Bef.ImFix == "SISTIERT", na.rm = T) - sum(EPcsv1$Bef.ImFix == "SISTIERT", na.rm = T)`   iFix-Befunde entfernt. 
+
+- Von `r sum(EPcsv$Bef.ImFix == "entfernt", na.rm = T)` entfernten iFix-Aufträgen wurden `r sum(EPcsv$Bef.ImFix == "entfernt", na.rm = T) - sum(EPcsv1$Bef.ImFix == "entfernt", na.rm = T)`   iFix-Befunde entfernt. 
+
+::: {.panel-tabset}
+### Bereiningen der Befundtexte {.justify}
+Wie im Kapitel "Data Understanding" beschrieben, werden die iFix-Befundtexte aufbereitet. Dazu werden Schreibfehler, Synonyme, Satzzeichen, Gross- und Kleinschreibung und Stopwörter bereinigt.
+In den Tabsets werden die Stopwörterlisten angezeigt.
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# Tokenisierung der imFix-Befundtexte
+library(tidytext)
+library(stringr)
+library(stopwords)
+
+# Monate als Stopwörter
+monate <- c(
+  "Januar", "Jan",
+  "Februar", "Feb",
+  "März", "März",
+  "April", "Apr",
+  "Mai", "Mai",
+  "Juni", "Jun",
+  "Juli", "Jul",
+  "August", "Aug",
+  "September", "Sept",
+  "Oktober", "Okt",
+  "November", "Nov",
+  "Dezember", "Dez",
+  "Monat", "Monaten", "monaten"
+) 
+
+# Stopwörterliste aus den Befunden (manuell ergänzt)
+ad.string <- c("ist die quantitative Bestimmung der aus der aktuellen Serumprobe und oder eine Verlaufskontrolle zu empfehlen Homogene Unspezifischer Befund vereinbar mit einer sowie der isolierten einer äusserst diskreten und diffusen in den Spuren für sicheren Je nach klinischem Kontext ist eine Verlaufskontrolle zu empfehlen  und bedingt einen modifizierten Ansatz Das initial berichtete endogene Weiterhin schwacher des vorbekannten sowie der zusätzlichen diskreten Zonierungen in den Spuren wesentliche des stark ausgeprägten Mobilität sowie des sehr schwach ausgeprägten leicht einer äusserst diskreten und diffusen Befund mit einer schwach ausgeprägten diskret diffusen bekannten Bei unklarer Ätiologie Verlaufskontrolle diskreter Bei Ätiologie Verlaufskontrolle Typ Verlaufskontrolle B RGB initialen klin")
+
+# stopwords anpassen, da in den tokens "nicht", "kein", "ohne" und Varianten 
+# enthalten bleiben sollen
+stopwords.olli <- setdiff(stopwords("de", "stopwords-iso"), 
+                          c("nicht", 
+                            "keine", 
+                            "kein", 
+                            "keinem", 
+                            "keinen", 
+                            "keiner", 
+                            "keines", 
+                            "ohne"))
+
+stopwords.olli <- c(
+                      stopwords.olli, ad.string |>
+                      str_split(" ") |>
+                      unlist(), monate
+                    ) |>
+  tolower() |>
+  unique() |>
+  setdiff("") |>
+  sort()
+```
+
+
+### Stopwörterliste
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+stopwords.olli
+```
+
+### Stopwörterliste als regex Ausdruck
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+stopwords.olli.col <- paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
+
+
+(stopwords.olli.col)
+```
+
+:::
+
+### Bereinigen der Befundtexte {.justify}
+- Entfernen der Klammern, Zahlen, Satzzeichen, Gross- und Kleinschreibung, Stopwörter und überflüssiger Leerzeichen.   
+-Vereinheitlichung der Synonyme von "monoklonalen" und "M-Proteinen".
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+EPcsv1 <- EPcsv1 |>
+  mutate(
+    Bef.ImFix_cleaned = gsub("\\([^)]*\\)", "", Bef.ImFix),
+    Bef.ImFix_cleaned = gsub("[0-9]+", "", Bef.ImFix_cleaned),
+    #Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, monate, ""),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "[[:punct:]]", " "),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, " +", " "),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\bmonoklonale?n?s?\\b", "M"),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\bM Proteine?n?s?\\b", "MProtein"),
+    Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned),
+    Bef.ImFix_cleaned = tolower(Bef.ImFix_cleaned),
+    Bef.ImFix_cleaned = gsub(stopwords.olli.col, "", Bef.ImFix_cleaned),
+    Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned)
+   )
+
+```
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#Bef.ImFix.freq.ngram <- 
+EPcsv1 |> 
+  count(Bef.ImFix_cleaned, sort = FALSE) |> 
+  arrange(desc(n)) |>
+  head(50) |>
+  flextable() |> 
+  width(j = 1, width = 6.5)
+  
+```
+
+- Korrektur von Schreibfehlern
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+tipo.unauff <- EPcsv1 |> 
+   na.omit() |>
+   mutate(distance = stringdist("unauffällig", word1, method = "lv")) |>
+   filter(distance <= 3)
+
 ```
 
 ## Erstellen neuer Daten {.justify}
@@ -142,7 +269,7 @@ library(pracma)
 
 
 
-hex.string <- EPcsv1$curve[EPcsv1$ID == 1690]
+hex.string <- EPcsv1$curve[EPcsv1$ID == 1675]
 
 # Split the string into hexadecimal parts
 hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
