@@ -45,7 +45,9 @@ EPcsv <- read_csv2("epcdatawithcurve.csv", col_select = c(1:4, 6), col_types = "
 ```
 
 
-```{r , echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
+```{r skimEPdata, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
+#| label: tbl-skimEPdata
+#| tbl-cap: Datenüberblick
 # print(head(EPcsv, 10))
 # print(glimpse(EPcsv))
 my_skim <- skim_with(base = sfl(
@@ -86,6 +88,8 @@ ft
 [\$curve:]{.underline} Sebia speichert die Protein-Elektrophorese-Daten im hexadecimalen Format [@chenLightweightOpenSource2022]. <br>  Je String 1200 Stellen, also 300 Hexadezimalwerte. Nach Konversion ins Dezimal-System sind das also 300 Datenpunkte pro Chromatogramm. 
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-chromatogram-plot
+#| fig-cap: "Chromatogramm einer Protein-Elektrophorese"
 hex.string <- EPcsv$curve[EPcsv$ID == 1691]
 
 # Split the string into hexadecimal parts
@@ -102,9 +106,9 @@ decimal.values$ID <- seq_len( nrow(decimal.values) ) |> rev()
 # delete rows with decimal values >10000
 decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
 
-plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "protein electrophoresis chromatogram")
+plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "")
 ```
-<br> Fehlende Daten:  `r sum(is.na(EPcsv$curve))`
+<br>
 
 
 
@@ -152,9 +156,12 @@ Da alle involvierten Prozesse der Datengeneration und der Datensammlung automati
 
 ## Untersuchen der Daten: Explorative Datenanalyse {.justify}
 
-### String Daten in den Befunden
+### Analyse der Befundtexte {.justify}
+
 #### EP Befunde
+
 Eventuell könnten die EP-Befundtexte als Vergleich zu den Vorhersagen der Modelle verwendet werden. 
+
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 library(stringr)
 m.grad.count <- str_count(EPcsv$Bef.EP, regex("gradient", ignore_case = TRUE))
@@ -178,8 +185,8 @@ bei insgesamt `r nrow(EPcsv)-sum(entf.count)` befundeten Chromatogrammen. Allerd
 Wie in [@elfertExpertlevelDetectionMproteins2024] beschrieben, brauchen wir für die Klassifizierung der EP-Chromatogramme in den Trainingsdaten eine "ground truth" welche durch eine andere Methode erstellt werden sollte. In unserem Setting sind wir auf die Befundtexte der Immunfixationen (iFix) angewiesen.
 Daher ist es im folgenden wichtig diese gut zu untersuchen.
 
-#### Bereinigung und Tokenisierung der Befundtexte
-Kleinschreibung, Entfernen von Satzzeichen und Stopwörtern, sowie Tokenisierung der Befundtexte. daraus ergibt sich folgende Häufigkeitsverteilung der Wörter in den iFix-Befundtexten:
+##### Bereinigung und Tokenisierung der Befundtexte
+Nach Kleinschreibung, Entfernen von Satzzeichen, sowie Tokenisierung der Befundtexte ergibt sich folgende Häufigkeitsverteilung der Wörter in den iFix-Befundtexten:
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Tokenisierung der imFix-Befundtexte
@@ -204,36 +211,77 @@ monate <- c(
   paste(collapse = "|")
 
 # stopwords anpassen, da in den tokens "nicht" enthalten bleiben soll
-stopwords.olli <- setdiff(stopwords("de", "stopwords-iso"), c("nicht", "keine", "ohne"))
+stopwords.olli <- setdiff(stopwords("de", "stopwords-iso"), c("nicht", 
+                                                              "keine", 
+                                                              "kein", 
+                                                              "keinem", 
+                                                              "keinen", 
+                                                              "keiner", 
+                                                              "keines", 
+                                                              "ohne"))
 stopwords.olli.col <- paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
 
 EPcsv1 <- EPcsv |>
   mutate(
     Bef.ImFix_cleaned = gsub("\\([A-Za-zäöüÄÖÜ]+(/[A-Za-zäöüÄÖÜ]+)?\\)", "", Bef.ImFix),
     Bef.ImFix_cleaned = gsub("[0-9]+", "", Bef.ImFix_cleaned),
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, monate, ""),
+    #Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, monate, ""),
     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "[[:punct:]]", ""),
     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, " +", " "),
     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "-", ""),
     Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned)
   ) |> 
-  unnest_tokens(Bef.ImFix_cleaned, Bef.ImFix_cleaned, token = "words", to_lower =TRUE, drop = FALSE) |> 
-  filter(!Bef.ImFix_cleaned %in% stopwords.olli)
+  unnest_tokens(Bef.ImFix_cleaned, Bef.ImFix_cleaned, token = "words", to_lower =TRUE, drop = FALSE) #|> 
+  #filter(!Bef.ImFix_cleaned %in% stopwords.olli)
 
 Bef.ImFix.freq <- EPcsv1 |> 
   count(Bef.ImFix_cleaned, sort = TRUE) |> 
   arrange(Bef.ImFix_cleaned)
 
-Bef.ImFix.freq |> 
+ft1 <- Bef.ImFix.freq[1461:1490,] |> 
   arrange(desc(n)) |>
-  head(20) |> 
+  #head(20) |> 
   flextable()
 
+ft2 <- Bef.ImFix.freq[1611:1640,] |> 
+  arrange(desc(n)) |>
+  #head(20) |> 
+  flextable()
+
+ft3 <- Bef.ImFix.freq[1931:1960,] |> 
+  arrange(desc(n)) |>
+  #head(20) |> 
+  flextable()
+
+# HTML-Ausgabe erstellen
+html_output <- htmltools::browsable(
+  htmltools::tagList(
+    htmltools::tags$div(
+      style = "display: flex; justify-content: space-between;",
+      htmltools::tags$div(
+        flextable::htmltools_value(ft1),
+        style = "margin-right: 10px;"
+      ),
+      htmltools::tags$div(
+        flextable::htmltools_value(ft2),
+        style = "margin-right: 10px;"
+      ),      
+      htmltools::tags$div(
+        flextable::htmltools_value(ft3)
+      )
+    )
+  )
+)
+
+# HTML-Ausgabe anzeigen
+#print(html_output, browse = TRUE)
+html_output
 ```
 
-Sehr wahrscheilich gibt es in den Befundtexten Wort-Varianten und Tippfehler. Daher werden einige Wörter, die in den Befundtexten vorkommen, auf ihre Ähnlichkeit zu wichtigen Begriffen wie "monoklonal", "M-Protein", "polyklonal", "akut-Phase", "immunreaktiv", "nachweisbar", "unauffällig", "Veränderung", "Vorbefund", "entfernt", "sistiert" überprüft.
+Offensichtlich gibt es in den Befundtexten Wort-Varianten und Tippfehler. Daher werden einige Wörter, die in den Befundtexten vorkommen, auf ihre Ähnlichkeit zu wichtigen Begriffen wie "monoklonal", "M-Protein", "polyklonal", "akut-Phase", "immunreaktiv", "nachweisbar", "unauffällig", "Veränderung", "Vorbefund", "entfernt", "sistiert" überprüft.
 
-#### Varianten des Wortes "monoklonal"
+##### Varianten des Wortes "monoklonal"
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 Bef.ImFix.freq |> 
@@ -243,7 +291,8 @@ Bef.ImFix.freq |>
   flextable() 
 ```
 
-#### Varianten des Wortes "M-Protein"
+##### Varianten des Wortes "M-Protein"
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 Bef.ImFix.freq |> 
@@ -253,7 +302,8 @@ Bef.ImFix.freq |>
   flextable() 
 ```
 
-#### Varianten des Wortes "polyklonal"
+##### Varianten des Wortes "polyklonal"
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 Bef.ImFix.freq |> 
@@ -262,7 +312,8 @@ Bef.ImFix.freq |>
   arrange(desc(n)) |>
   flextable() 
 ```
-#### Varianten des Wortes "akut-Phase"
+##### Varianten des Wortes "akut-Phase"
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 Bef.ImFix.freq |> 
@@ -272,7 +323,8 @@ Bef.ImFix.freq |>
   flextable() 
 ```
 
-#### Varianten des Wortes "immunreaktiv"
+##### Varianten des Wortes "immunreaktiv"
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 Bef.ImFix.freq |> 
@@ -282,7 +334,8 @@ Bef.ImFix.freq |>
   flextable() 
 ```
 
-#### Varianten des Wortes "nachweisbar"
+##### Varianten des Wortes "nachweisbar"
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 
@@ -294,7 +347,8 @@ Bef.ImFix.freq |>
 
 ```
 
-#### Varianten des Wortes "unauffällig"
+##### Varianten des Wortes "unauffällig"
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 
@@ -305,7 +359,8 @@ Bef.ImFix.freq |>
   flextable() 
 
 ```
-#### Varianten des Wortes "Veränderung"
+##### Varianten des Wortes "Veränderung"
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 
@@ -317,7 +372,8 @@ Bef.ImFix.freq |>
 ```
 
 
-#### Varianten des Wortes "Vorbefund"
+##### Varianten des Wortes "Vorbefund"
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 
@@ -328,7 +384,8 @@ Bef.ImFix.freq |>
   flextable() 
 ```
 
-#### Varianten des Wortes "entfernt"
+##### Varianten des Wortes "entfernt"
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 
@@ -339,7 +396,7 @@ Bef.ImFix.freq |>
   flextable() 
 ```
 
-#### Varianten des Wortes "sistiert"
+##### Varianten des Wortes "sistiert"
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 # Berechnung der Levenshtein-Distanzen
 
@@ -389,6 +446,7 @@ EPcsv2 |>
 ```
 
 Weiter werden die häufigsten n-Gramme in den Befundtexten untersucht:
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 EPcsv2 |> 
    na.omit() |>
@@ -399,6 +457,7 @@ EPcsv2 |>
 ```
 
 Im weiteren werden Kombinationen mit dem Wort "nicht" & "ohne" untersucht:
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 EPcsv2 |> 
    na.omit() |>
@@ -421,6 +480,7 @@ EPcsv2 |>
 ```
 
 Im weiteren werden Kombinationen mit den Wörtern "keine" & "kein" untersucht:
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 EPcsv2 |> 
    na.omit() |>
@@ -432,13 +492,27 @@ EPcsv2 |>
    flextable()
 ```
 
+Kombinationen mit "unauffällig"
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+EPcsv2 |> 
+   na.omit() |>
+   mutate(distance = stringdist("unauffällig", word1, method = "lv")) %>%
+   filter(distance <= 3) %>%
+   count( word1, word2, word3, sort = TRUE) |> 
+   arrange(desc(n)) |> 
+   head(30) |> 
+   flextable()
+```
+
 Es scheint auch informativ die Häufigkeiten der etwas bereinigten Befundtexte zu untersuchen:
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 #Bef.ImFix.freq.ngram <- 
 EPcsv2 |> 
   count(Bef.ImFix_cleaned, sort = TRUE) |> 
   arrange(desc(n)) |>
-  head(30) |>
+  head(50) |>
   flextable() |> 
   width(j = 1, width = 6.5)
   
@@ -446,28 +520,89 @@ EPcsv2 |>
 Daraus wird klar, dass es viele Wörter gibt, die in den Befundtexten vorkommen, die keine relevante Information für eine spätere Klassifizierung transportieren. z.Bsp "weiterhin", "des", "bekannten", "vom", "Typ". \b
 Es ist zu überlegen, ob diese als Stoppwörter in der Datapreparation entfernt werden.
 
+#### Analyse der iFix-Befundtext ohne Stoppwörter {.justify}
+
+##### Anlegen der Stoppwörterliste
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE} 
+# Hinzufügen von Stopwörtern wie "weiterhin" zu stopwords.olli
+ad.string <- c("ist die quantitative Bestimmung der aus der aktuellen Serumprobe und oder eine Verlaufskontrolle zu empfehlen Homogene Unspezifischer Befund vereinbar mit einer sowie der isolierten einer äusserst diskreten und diffusen in den Spuren für sicheren Je nach klinischem Kontext ist eine Verlaufskontrolle zu empfehlen  und bedingt einen modifizierten Ansatz Das initial berichtete endogene Weiterhin schwacher des vorbekannten sowie der zusätzlichen diskreten Zonierungen in den Spuren wesentliche des stark ausgeprägten Mobilität sowie des sehr schwach ausgeprägten leicht einer äusserst diskreten und diffusen Befund mit einer schwach ausgeprägten diskret diffusen bekannten Bei unklarer Ätiologie Verlaufskontrolle diskreter Bei Ätiologie Verlaufskontrolle Typ Verlaufskontrolle B RGB initialen klin")
+
+stopwords.olli <- c(stopwords.olli, ad.string |>
+  str_split(" ") |>
+  unlist()) |>
+  tolower() |>
+  unique() |>
+  setdiff("") |>
+  sort()
+
+stopwords.olli
+```
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE} 
+stopwords.olli.col <- paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
+```
+
+
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
-# Tokenisierung der EP-Befundtexte
-library(tidytext)
-library(stringr)
-library(stopwords)
-EPcsv1 <- EPcsv1 |>
+EPcsv2 <- EPcsv |>
   mutate(
-    # Bef.EP_cleaned = str_to_lower(Bef.EP, locale = "de_CH"),
-    Bef.EP_cleaned = gsub("\\([A-Z]{3}\\)", "", Bef.EP),
-    # Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "[[:punct:]]", ""),
-    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "[[:punct:]]", ""),
-    # Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "),
-    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "),
-    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "-", ""),
-    # Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "),
-    # Bef.EP_cleaned = str_squish(Bef.EP_cleaned, " +", " "),
-    Bef.EP_cleaned = str_squish(Bef.EP_cleaned)
-  ) |> 
-  filter(!Bef.EP_cleaned %in% stopwords("de"))|> 
-  unnest_tokens(Bef.EP_cleaned, Bef.EP_cleaned, token = "words", to_lower = TRUE, drop = FALSE) 
+    Bef.ImFix_cleaned = gsub("\\([^)]*\\)", "", Bef.ImFix),
+    Bef.ImFix_cleaned = gsub("[0-9]+", "", Bef.ImFix_cleaned),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, monate, ""),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "[[:punct:]]", " "),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, " +", " "),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\bmonoklonale?n?s?\\b", "M"),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\bM Proteine?n?s?\\b", "MProtein"),
+    Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned),
+    Bef.ImFix_cleaned = tolower(Bef.ImFix_cleaned),
+    Bef.ImFix_cleaned = gsub(stopwords.olli.col, "", Bef.ImFix_cleaned),
+    Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned)
+   ) #|> 
+  # unnest_tokens(trigram, Bef.ImFix_cleaned, token = "ngrams", n = 3, to_lower =TRUE, drop = FALSE) |>
+  # filter(!is.na(trigram))  |> 
+  # separate(trigram, c("word1", "word2", "word3"), sep = " ")
+  
 ```
+
+Für die Analyse der Häufigkeiten der Befundtexte, werden die Stopwörter entfernt, es werden aber auch Synonyme zusammengefasst. Z.Bsp "monoklonal", "monoklonale Proteine", "monoklonalen Proteinen", "monoklonales Proteins", "M-Protein", "M-Proteins", etc werden zu "mprotein" zusammengefasst.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#Bef.ImFix.freq.ngram <- 
+EPcsv2 |> 
+  count(Bef.ImFix_cleaned, sort = FALSE) |> 
+  arrange(desc(n)) |>
+  head(50) |>
+  flextable() |> 
+  width(j = 1, width = 6.5)
+  
+```
+
+<!-- # ```{r, echo=TRUE, message=FALSE, warning=FALSE} -->
+<!-- # # Tokenisierung der EP-Befundtexte -->
+<!-- # library(tidytext) -->
+<!-- # library(stringr) -->
+<!-- # library(stopwords) -->
+<!-- # EPcsv1 <- EPcsv1 |> -->
+<!-- #   mutate( -->
+<!-- #     # Bef.EP_cleaned = str_to_lower(Bef.EP, locale = "de_CH"), -->
+<!-- #     Bef.EP_cleaned = gsub("\\([A-Z]{3}\\)", "", Bef.EP), -->
+<!-- #     # Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "[[:punct:]]", ""), -->
+<!-- #     Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "[[:punct:]]", ""), -->
+<!-- #     # Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "), -->
+<!-- #     Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "), -->
+<!-- #     Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "-", ""), -->
+<!-- #     # Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "), -->
+<!-- #     # Bef.EP_cleaned = str_squish(Bef.EP_cleaned, " +", " "), -->
+<!-- #     Bef.EP_cleaned = str_squish(Bef.EP_cleaned) -->
+<!-- #   ) |>  -->
+<!-- #   filter(!Bef.EP_cleaned %in% stopwords("de"))|>  -->
+<!-- #   unnest_tokens(Bef.EP_cleaned, Bef.EP_cleaned, token = "words", to_lower = TRUE, drop = FALSE)  -->
+<!-- # ``` -->
+
+#### Zusammenfassung der Befundtexte Analysen {.justify}
 
 ```{r, echo=T, message=FALSE, warning=FALSE}
 library(stringr)
@@ -510,7 +645,9 @@ vorbef <- paste(phrasen, collapse = "|")
 
 vorb.count <- str_count(EPcsv$Bef.ImFix, regex(vorbef, ignore_case = T))
 ```
-[In den Immunfixationen kommen insgesamt `r sum(vorb.count, na.rm = T)` Verweise auf historische Befunde vor, zu denen im Vergleich keine Veränderung erkennbar war. Diese Verweise bringen also Wörter wie "keine" und "ohne" in die Befundtexte mit ein. Diese sind jedoch in einem anderen Zusammenhang wie z. Bsp. "keine monoklonale Bande erkennbar". Diese müssen also unterschieden werden.]{style="color:#00008B;font-weight:bold"}
+[In den iFix-Befundtexten kommen Synonyme, Rechtschreibfehler, Gross- & Kleinschreibung, Stopwörter, Daten, Abkürzungen und Satzzeichen vor. Nach deren Bereinigung sollten die relevanten Informationen für die Klassifizierung der Chromatogramm-Daten leichter zu extrahieren sein.]{style="color:#00008B;font-weight:bold"}<br>
+[In den Immunfixationen kommen insgesamt `r sum(vorb.count, na.rm = T)` Verweise auf historische Befunde vor, zu denen im Vergleich keine Veränderung erkennbar war. Diese Verweise bringen also Wörter wie "keine" und "ohne" in die Befundtexte mit ein. Diese sind jedoch in einem anderen Zusammenhang wie z. Bsp. "keine monoklonale Bande erkennbar". Diese müssen also unterschieden werden.]{style="color:#00008B;font-weight:bold"}<br>
+[Die Auswertung von tri-Grams könnte evtl dabei helfen, diese Varianten zu unterscheiden.]{style="color:#00008B;font-weight:bold"}
 
 
 ```{r, echo=T, message=FALSE, warning=FALSE}
@@ -643,8 +780,10 @@ plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "bl
 
 ## Überprüfen der Datenqualität {.justify}
 
-Die Datenqualität ist gut. Die Datensätze sind alle einheitlich, da automatisiert aufgezeichnet. 
+Die quantitativen Datensätze sind alle einheitlich, da automatisiert aufgezeichnet. 
 Von den `r as.integer(nrow(EPcsv))` Datensätze fehlen bei `r as.integer(sum(is.na(EPcsv$curve)))` die Chromatographie-Daten. Diese könnten bei der Datenpreparation ausgeschlossen werden.  
 
 Die Chromatographie Daten wurden bis `r as.Date(substr(max(EPcsv$TaNu), 1, 10), format = "%Y.%m.%d")` im vorliegenden Datensatz gespeichert. Die Daten von `r as.Date(substr(max(EPcsv$TaNu), 1, 10), format = "%Y.%m.%d")` bis `r Sys.Date()` könnten noch hinzugefügt werden.
+
+Die Befundtexte, die wichtig für die Klassifizierung sind, sind wenig standardisiert. Es gibt viele Synonyme und Rechtschreibfehler. Daher ist es wichtig, dass die Befundtexte gut bereinigt werden.
 
