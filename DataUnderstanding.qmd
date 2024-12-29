@@ -90,6 +90,7 @@ ft
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 #| label: fig-chromatogram-plot
 #| fig-cap: "Chromatogramm einer Protein-Elektrophorese"
+
 hex.string <- EPcsv$curve[EPcsv$ID == 1691]
 
 # Split the string into hexadecimal parts
@@ -461,8 +462,8 @@ Im weiteren werden Kombinationen mit dem Wort "nicht" & "ohne" untersucht:
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 EPcsv2 |> 
    na.omit() |>
-   mutate(distance = stringdist("nicht", word1, method = "lv")) %>%
-   filter(distance < 2) %>%
+   mutate(distance = stringdist("nicht", word1, method = "lv")) |>
+   filter(distance < 2) |>
    count( word1, word2, word3, sort = TRUE) |> 
    arrange(desc(n)) |> 
    head(20) |> 
@@ -471,8 +472,8 @@ EPcsv2 |>
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 EPcsv2 |> 
    na.omit() |>
-   mutate(distance = stringdist("ohne", word1, method = "lv")) %>%
-   filter(distance < 2) %>%
+   mutate(distance = stringdist("ohne", word1, method = "lv")) |>
+   filter(distance < 2) |>
    count( word1, word2, word3, sort = TRUE) |> 
    arrange(desc(n)) |> 
    head(20) |> 
@@ -484,8 +485,8 @@ Im weiteren werden Kombinationen mit den Wörtern "keine" & "kein" untersucht:
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 EPcsv2 |> 
    na.omit() |>
-   mutate(distance = stringdist(c("keine", "kein"), word1, method = "lv")) %>%
-   filter(distance < 1) %>%
+   mutate(distance = stringdist(c("keine", "kein"), word1, method = "lv")) |>
+   filter(distance < 1) |>
    count( word1, word2, word3, sort = TRUE) |> 
    arrange(desc(n)) |> 
    head(20) |> 
@@ -497,8 +498,8 @@ Kombinationen mit "unauffällig"
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 EPcsv2 |> 
    na.omit() |>
-   mutate(distance = stringdist("unauffällig", word1, method = "lv")) %>%
-   filter(distance <= 3) %>%
+   mutate(distance = stringdist("unauffällig", word1, method = "lv")) |>
+   filter(distance <= 3) |>
    count( word1, word2, word3, sort = TRUE) |> 
    arrange(desc(n)) |> 
    head(30) |> 
