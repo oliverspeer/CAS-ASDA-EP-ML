@@ -79,7 +79,8 @@ Kontrolle der Daten nach dem Filtern:
 # filtern der Daten EPcsv1$curve !NA
 EPcsv1 <- EPcsv[!is.na(EPcsv$curve)&!is.na(EPcsv$Bef.ImFix),] |>   
   filter(!grepl("SISTIERT|entfernt", Bef.EP, ignore.case = TRUE)) |> 
-  filter(!grepl("^(SISTIERT|entfernt|folgt)\\b", Bef.ImFix, ignore.case = TRUE))
+  filter(!grepl("^(SISTIERT|entfernt|folgt)\\b", Bef.ImFix, ignore.case = TRUE)) |> 
+  filter(!grepl("^X\\d", curve, ignore.case = FALSE))
  
 ```
 - Von `r sum(is.na(EPcsv$curve))` Datensätzen ohne Chromatogramm-Daten  wurden `r sum(is.na(EPcsv$curve)) - sum(is.na(EPcsv1$curve))` Datensätze entfernt.
@@ -1050,7 +1051,7 @@ library(pracma)
 
 
 
-hex.string <- EPcsv1$curve[EPcsv1$ID == 5981]
+hex.string <- EPcsv1$curve[EPcsv1$ID == 7970]
 
 # Split the string into hexadecimal parts
 hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
@@ -1144,9 +1145,90 @@ dev.df <- dev.df |>
   rowwise() |>
   mutate(peak.data = list(extract.peak.data(peaks))) |>
   unnest_wider(peak.data)
+```
 
+#### Entwicklung der Features für die Modellierung
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+hex.string <- EPcsv1$curve[EPcsv1$ID == 1675]
+
+# Convert each hex part to decimal
+EP.dec.y <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4)) |> 
+  sapply(function(x) as.integer(paste0("0x", x)))
+
+# dataframe with EP elution time points, decimal EP signal values, slopes, second derivatives, and AUC
+dat <- tibble(EP.t = seq_len( length(EP.dec.y) ), EP.y = rev(EP.dec.y))
+dat <- dat |>
+  mutate(m = ((lead(EP.y) - EP.y / (lead(EP.t) - EP.t)) |> replace_na(0)),
+         fdd = predict(smooth.spline(EP.t, EP.y), deriv = 2)$y[1:(nrow(dat))],
+         AUC =pmap_dbl(
+           list(EP.t = lag(EP.t), EP.t_cur = EP.t, EP.t_next = lead(EP.t), 
+                EP_y = lag(EP.y), EP_y_cur = EP.y, EP_y_next = lead(EP.y)),
+           ~ ifelse(
+             is.na(..1) | is.na(..3), 0,  # Prüft, ob genügend Punkte vorhanden sind
+             ((..3 - ..1) / 6) * (..2 + 4 * ..5 + ..6) # Simpsonregel-Formel
+           )
+         )
+         ) |>
+  filter(EP.y < 10000)
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(tibble)
+library(dplyr)
+library(purrr)
+library(future)
+library(future.apply)
+dev.df1 <- EPcsv1[5000:10000,] |> # Kopieren der ersten 50 Zeilen von EPcsv1 in dev.df1
+   filter(!grepl("^X\\d", curve, ignore.case = FALSE)) # Entfernen von Zeilen, die mit "X" beginnen
+  
+# Initialisieren der neuen Spalten in EPcsv1
+num_points <- 293 # Anzahl von EP.y-Werten
+# Erzeugen der neuen Spalten explizit
+for (col_name in c("EP.y", "m", "fdd", "AUC")) {
+  for (i in seq_len(num_points)) {
+    dev.df1[[paste0(col_name, i)]] <- NA_real_
+  }
+}
+
+# Prozessieren jedes Chromatogramms
+for (i in seq_len(nrow(dev.df1))) {
+  hex.string <- dev.df1$curve[i]
+  
+  # Konvertieren der Hex-Strings in Dezimalwerte
+  EP.dec.y <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4)) |> 
+    sapply(function(x) as.integer(paste0("0x", x)))
+  
+  # Erstellen des DataFrames mit EP elution time points, decimal EP signal values, slopes, second derivatives, und AUC 
+  dat <- tibble(EP.t = seq_len( length(EP.dec.y) ), EP.y = rev(EP.dec.y))
+  dat <- dat |>
+    mutate(m = ((lead(EP.y) - EP.y / (lead(EP.t) - EP.t)) |> replace_na(0)),
+           fdd = predict(smooth.spline(EP.t, EP.y), deriv = 2)$y[1:(nrow(dat))],
+           AUC =pmap_dbl(
+             list(EP.t = lag(EP.t), EP.t_cur = EP.t, EP.t_next = lead(EP.t), 
+                  EP_y = lag(EP.y), EP_y_cur = EP.y, EP_y_next = lead(EP.y)),
+             ~ ifelse(
+               is.na(..1) | is.na(..3), 0,  # prüfen, ob genügend Punkte vorhanden sind
+               ((..3 - ..1) / 6) * (..2 + 4 * ..5 + ..6) # Simpsonregel-Formel
+             )
+           )
+    ) |>
+    filter(EP.y < 10000)
+
+  # Speichern der Ergebnisse in die entsprechenden Spalten
+  for (j in seq_len(min(nrow(dat), num_points))) {
+    dev.df1[[paste0("EP.y", j)]][i] <- dat$EP.y[j]
+    dev.df1[[paste0("m", j)]][i] <- dat$m[j]
+    dev.df1[[paste0("fdd", j)]][i] <- dat$fdd[j]
+    dev.df1[[paste0("AUC", j)]][i] <- dat$AUC[j]
+  }
+}
+
+# Ergebnis: EPcsv1 enthält nun die neuen Spalten
 
 ```
+
+
 
 
 ```{r skimEPdata, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
