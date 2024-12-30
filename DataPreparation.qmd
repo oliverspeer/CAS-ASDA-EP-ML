@@ -770,9 +770,10 @@ kmeans_model.c5 <- kmeans(tri.grams.matrix, centers = 5, nstart = 25)
 
 # Cluster zuordnen
 EPcsv1 <- EPcsv1 |> 
-  mutate(cluster3 = kmeans_model.c3$cluster,
-         cluster4 = kmeans_model.c4$cluster,
-         cluster5 = kmeans_model.c5$cluster)
+  mutate(cluster3 = kmeans_model.c3$cluster#,
+         #cluster4 = kmeans_model.c4$cluster,
+         #cluster5 = kmeans_model.c5$cluster
+         )
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
@@ -1051,7 +1052,7 @@ library(pracma)
 
 
 
-hex.string <- EPcsv1$curve[EPcsv1$ID == 7970]
+hex.string <- EPcsv1$curve[EPcsv1$ID == 2705]
 
 # Split the string into hexadecimal parts
 hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
@@ -1081,206 +1082,78 @@ text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels 
 
 ``` 
 
-#### Eintragen der decimalen Chromatogramm-Daten EPcsv1
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# kopieren der ersten 50 Zeilen von EPcsv1 in dev.df
-dev.df <- EPcsv1
-
-# Hex-String in decimale Y-Werte umwandeln
-convert.curve.to.y <- function(hex.string) {
-  hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
-  decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
-  dat <- as.data.frame(decimal.values)
-  dat$decimal.values <- rev(dat$decimal.values)
-  dat$ID <- seq_len( nrow(dat) ) 
-  dat <- dat[dat$decimal.values < 10000,]
-  return(dat)
-}
-
-# Hinzufügen der 300 Y-Werte als Liste
-dev.df <- dev.df |>
-  rowwise() |>
-  mutate(y.values = list(convert.curve.to.y(curve)))
 
 
-# Funktion zur Peak-Erkennung und Umwandlung in ein DataFrame
-library(pracma)
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- # kopieren der ersten 50 Zeilen von EPcsv1 in dev.df -->
+<!-- dev.df <- EPcsv1 -->
 
-detect.peaks <- function(y.values) {
-  peaks <- findpeaks(y.values, npeaks = 15, nups = 2, ndowns = 0, minpeakheight = 80)  
-  if (is.null(peaks)) {
-    return(data.frame(
-      height = NA, position = NA, begin = NA, end = NA
-    ))
-  }
-  return(data.frame(
-    height = peaks[, 1],
-    position = peaks[, 2],
-    begin = peaks[, 3],
-    end = peaks[, 4]
-  ))
-}
+<!-- # Hex-String in decimale Y-Werte umwandeln -->
+<!-- convert.curve.to.y <- function(hex.string) { -->
+<!--   hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4)) -->
+<!--   decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x))) -->
+<!--   dat <- as.data.frame(decimal.values) -->
+<!--   dat$decimal.values <- rev(dat$decimal.values) -->
+<!--   dat$ID <- seq_len( nrow(dat) )  -->
+<!--   dat <- dat[dat$decimal.values < 10000,] -->
+<!--   return(dat) -->
+<!-- } -->
 
-# Peaks finden und Ergebnisse als Liste hinzufügen
-dev.df <- dev.df |>
-  rowwise() |>
-  mutate(peaks = list(detect.peaks(y.values$decimal.values)))
-
-# Peaks in Wide-Format transformieren
-extract.peak.data <- function(peaks, max.peaks = 12) {
-  peaks <- peaks[seq_len(min(nrow(peaks), max.peaks)), ]
-  result <- as.list(rep(NA, max.peaks * 4))
-  names(result) <- paste0(rep(paste0("peak", seq_len(max.peaks)), each = 4), c(".height", ".position", ".begin", ".end"))
-  for (i in seq_len(nrow(peaks))) {
-    result[[paste0("peak", i, ".height")]] <- peaks$height[i]
-    result[[paste0("peak", i, ".position")]] <- peaks$position[i]
-    result[[paste0("peak", i, ".begin")]] <- peaks$begin[i]
-    result[[paste0("peak", i, ".end")]] <- peaks$end[i]
-  }
-  return(result)
-}
-
-# Ergebnisse als Spalten hinzufügen
-dev.df <- dev.df |>
-  rowwise() |>
-  mutate(peak.data = list(extract.peak.data(peaks))) |>
-  unnest_wider(peak.data)
-```
-
-#### Entwicklung der Features für die Modellierung
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-hex.string <- EPcsv1$curve[EPcsv1$ID == 1675]
-
-# Convert each hex part to decimal
-EP.dec.y <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4)) |> 
-  sapply(function(x) as.integer(paste0("0x", x)))
-
-# dataframe with EP elution time points, decimal EP signal values, slopes, second derivatives, and AUC
-dat <- tibble(EP.t = seq_len( length(EP.dec.y) ), EP.y = rev(EP.dec.y))
-dat <- dat |>
-  mutate(m = ((lead(EP.y) - EP.y / (lead(EP.t) - EP.t)) |> replace_na(0)),
-         fdd = predict(smooth.spline(EP.t, EP.y), deriv = 2)$y[1:(nrow(dat))],
-         AUC =pmap_dbl(
-           list(EP.t = lag(EP.t), EP.t_cur = EP.t, EP.t_next = lead(EP.t), 
-                EP_y = lag(EP.y), EP_y_cur = EP.y, EP_y_next = lead(EP.y)),
-           ~ ifelse(
-             is.na(..1) | is.na(..3), 0,  # Prüft, ob genügend Punkte vorhanden sind
-             ((..3 - ..1) / 6) * (..2 + 4 * ..5 + ..6) # Simpsonregel-Formel
-           )
-         )
-         ) |>
-  filter(EP.y < 10000)
-```
+<!-- # Hinzufügen der 300 Y-Werte als Liste -->
+<!-- dev.df <- dev.df |> -->
+<!--   rowwise() |> -->
+<!--   mutate(y.values = list(convert.curve.to.y(curve))) -->
 
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-library(tibble)
-library(dplyr)
-library(purrr)
-library(future)
-library(future.apply)
-dev.df1 <- EPcsv1[5000:10000,] |> # Kopieren der ersten 50 Zeilen von EPcsv1 in dev.df1
-   filter(!grepl("^X\\d", curve, ignore.case = FALSE)) # Entfernen von Zeilen, die mit "X" beginnen
-  
-# Initialisieren der neuen Spalten in EPcsv1
-num_points <- 293 # Anzahl von EP.y-Werten
-# Erzeugen der neuen Spalten explizit
-for (col_name in c("EP.y", "m", "fdd", "AUC")) {
-  for (i in seq_len(num_points)) {
-    dev.df1[[paste0(col_name, i)]] <- NA_real_
-  }
-}
+<!-- # Funktion zur Peak-Erkennung und Umwandlung in ein DataFrame -->
+<!-- library(pracma) -->
 
-# Prozessieren jedes Chromatogramms
-for (i in seq_len(nrow(dev.df1))) {
-  hex.string <- dev.df1$curve[i]
-  
-  # Konvertieren der Hex-Strings in Dezimalwerte
-  EP.dec.y <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4)) |> 
-    sapply(function(x) as.integer(paste0("0x", x)))
-  
-  # Erstellen des DataFrames mit EP elution time points, decimal EP signal values, slopes, second derivatives, und AUC 
-  dat <- tibble(EP.t = seq_len( length(EP.dec.y) ), EP.y = rev(EP.dec.y))
-  dat <- dat |>
-    mutate(m = ((lead(EP.y) - EP.y / (lead(EP.t) - EP.t)) |> replace_na(0)),
-           fdd = predict(smooth.spline(EP.t, EP.y), deriv = 2)$y[1:(nrow(dat))],
-           AUC =pmap_dbl(
-             list(EP.t = lag(EP.t), EP.t_cur = EP.t, EP.t_next = lead(EP.t), 
-                  EP_y = lag(EP.y), EP_y_cur = EP.y, EP_y_next = lead(EP.y)),
-             ~ ifelse(
-               is.na(..1) | is.na(..3), 0,  # prüfen, ob genügend Punkte vorhanden sind
-               ((..3 - ..1) / 6) * (..2 + 4 * ..5 + ..6) # Simpsonregel-Formel
-             )
-           )
-    ) |>
-    filter(EP.y < 10000)
+<!-- detect.peaks <- function(y.values) { -->
+<!--   peaks <- findpeaks(y.values, npeaks = 15, nups = 2, ndowns = 0, minpeakheight = 80)   -->
+<!--   if (is.null(peaks)) { -->
+<!--     return(data.frame( -->
+<!--       height = NA, position = NA, begin = NA, end = NA -->
+<!--     )) -->
+<!--   } -->
+<!--   return(data.frame( -->
+<!--     height = peaks[, 1], -->
+<!--     position = peaks[, 2], -->
+<!--     begin = peaks[, 3], -->
+<!--     end = peaks[, 4] -->
+<!--   )) -->
+<!-- } -->
 
-  # Speichern der Ergebnisse in die entsprechenden Spalten
-  for (j in seq_len(min(nrow(dat), num_points))) {
-    dev.df1[[paste0("EP.y", j)]][i] <- dat$EP.y[j]
-    dev.df1[[paste0("m", j)]][i] <- dat$m[j]
-    dev.df1[[paste0("fdd", j)]][i] <- dat$fdd[j]
-    dev.df1[[paste0("AUC", j)]][i] <- dat$AUC[j]
-  }
-}
+<!-- # Peaks finden und Ergebnisse als Liste hinzufügen -->
+<!-- dev.df <- dev.df |> -->
+<!--   rowwise() |> -->
+<!--   mutate(peaks = list(detect.peaks(y.values$decimal.values))) -->
 
-# Ergebnis: EPcsv1 enthält nun die neuen Spalten
+<!-- # Peaks in Wide-Format transformieren -->
+<!-- extract.peak.data <- function(peaks, max.peaks = 12) { -->
+<!--   peaks <- peaks[seq_len(min(nrow(peaks), max.peaks)), ] -->
+<!--   result <- as.list(rep(NA, max.peaks * 4)) -->
+<!--   names(result) <- paste0(rep(paste0("peak", seq_len(max.peaks)), each = 4), c(".height", ".position", ".begin", ".end")) -->
+<!--   for (i in seq_len(nrow(peaks))) { -->
+<!--     result[[paste0("peak", i, ".height")]] <- peaks$height[i] -->
+<!--     result[[paste0("peak", i, ".position")]] <- peaks$position[i] -->
+<!--     result[[paste0("peak", i, ".begin")]] <- peaks$begin[i] -->
+<!--     result[[paste0("peak", i, ".end")]] <- peaks$end[i] -->
+<!--   } -->
+<!--   return(result) -->
+<!-- } -->
 
-```
+<!-- # Ergebnisse als Spalten hinzufügen -->
+<!-- dev.df <- dev.df |> -->
+<!--   rowwise() |> -->
+<!--   mutate(peak.data = list(extract.peak.data(peaks))) |> -->
+<!--   unnest_wider(peak.data) -->
+<!-- ``` -->
 
 
 
 
-```{r skimEPdata, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
-#| label: tbl-skimEPPeakData
-#| tbl-cap: EP-Daten mit Klassifikation und Peakdaten
 
 
-my_skim <- skim_with(base = sfl(
-  #Datentyp = skim_type,
-  #Variable = skim_variable,
-  fehlend = n_missing,
-  komplett = n_complete,
-  n = length
-))
-ft <-  flextable(my_skim(dev.df))|> 
-  set_header_labels(skim_type = "Datentyp",
-                    skim_variable = "Variable",
-                    n_missing = "Fehlende Werte",
-                    n = "Anzahl",
-                    numeric.mean = "Mittelwert",
-                    numeric.sd = "Standardabweichung",
-                    numeric.p25 = "25%-Quantil",
-                    numeric.p50 = "50%-Quantil",
-                    numeric.p75 = "75%-Quantil",
-                    numeric.p0 = "Minimum",
-                    numeric.p100 = "Maximum",
-                    numeric.hist = "Histogramm",
-                    factor.n_unique =" Anzahl Faktoren") |>
-  autofit() |>
-  bold(part = "header") |>
-  align(align = "center", part = "all")
-ft
-```
-
-### Testen der Chromatogramm-Daten Einträge
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# Testen der Chromatogramm-Daten Einträge
-# Select the columns of interest
-peak_columns <- dev.df  |> 
-  select(starts_with("peak") & ends_with("height")) |>   # Adjust this if column names vary
-  select(-contains("peaks"))  # Remove position columns
-
-# Check for values between 80 and 200 in each column
-peaks_in_range <- peak_columns  |> 
-  summarise(across(everything(), ~ any(. >= 80 & . <= 200)))
-
-# Output column names that have values in the range
-columns_with_values <- names(peaks_in_range)[peaks_in_range]
-
-# Results
-columns_with_values
-```
 ### Area Under the Curve (AUC)
 
 Die wichtigen Peaks für die Beurteilung einer Gammopathie sind die Peaks beta1, beta2, und gamma. Für diesen Bereicht des Chromatogramms werden im folgenden die Flächen zwischen den jeweils benachbarten Messpunkten berechnet.
@@ -1365,9 +1238,151 @@ dat$der <- predict(smooth.spline(dat$ID, dat$decimal.values), deriv = 2)$y[1:(nr
 
 ```
 
+Da die Anzahl der Peaks in den Chromatogrammen variieren kann, verfolge ich das "Peakdetection" nicht weiter.
+Als features werden die Höhen, Flächen, die Steigungen und die zweiten Ableitungen für alle Messpunkte berechnet.
+Bei der Modell-Entwicklung können dann die relevanten Bereiche der Chromatogramme ausgewählt werden.
+Dies erlaubt dann evtl weiter Möglichkeiten über das vorliegende Projekt hinaus. 
 
 
-## Integrieren von Daten {.justify}
+## Integrieren und formatieren von Daten {.justify}
+
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(tibble)
+library(dplyr)
+library(purrr)
+library(future)
+library(future.apply)
+library(parallelly)
+
+dev.df1 <- EPcsv1|> #[1:500,] 
+   filter(!grepl("^X\\d", curve, ignore.case = FALSE)) # Entfernen von Zeilen, die mit "X" beginnen
+  
+# Initialisieren der neuen Spalten in EPcsv1
+num_points <- 300 # Anzahl von EP.y-Werten
+# Erzeugen der neuen Spalten explizit
+for (col_name in c("EP.y", "m", "fdd", "AUC")) {
+  for (i in seq_len(num_points)) {
+    dev.df1[[paste0(col_name, i)]] <- NA_real_
+  }
+}
+
+#fun.proc.ep <- function(dev.df1, hex_column, num_points){
+  
+# Prozessieren jedes Chromatogramms
+ for (i in seq_len(nrow(dev.df1))) {
+  #hex.string <- dev.df1[[hex_column]][i]
+  hex.string <- dev.df1$curve[i]
+  
+  # Konvertieren der Hex-Strings in Dezimalwerte
+  EP.dec.y <- as.integer(paste0("0x", substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))))
+  
+  # Ersetzen der Werte > 10000 durch den Wert der vorhergehenden Stelle
+  EP.dec.y <- cumsum(ifelse(EP.dec.y > 10000, 0, EP.dec.y)) - c(0, head(cumsum(ifelse(EP.dec.y > 10000, 0, EP.dec.y)), -1))
+  
+
+  # Erstellen des DataFrames mit EP elution time points, decimal EP signal values, slopes, second derivatives, und AUC 
+  dat <- tibble(EP.t = seq_len( length(EP.dec.y) ), EP.y = rev(EP.dec.y))
+  dat <- dat |>
+    mutate(m = ((lead(EP.y) - EP.y / (lead(EP.t) - EP.t)) |> replace_na(0)),
+           fdd = predict(smooth.spline(EP.t, EP.y), deriv = 2)$y[1:(nrow(dat))],
+           AUC =pmap_dbl(
+             list(EP.t = lag(EP.t), EP.t_cur = EP.t, EP.t_next = lead(EP.t), 
+                  EP_y = lag(EP.y), EP_y_cur = EP.y, EP_y_next = lead(EP.y)),
+             ~ ifelse(
+               is.na(..1) | is.na(..3), 0,  # prüfen, ob genügend Punkte vorhanden sind
+               ((..3 - ..1) / 6) * (..2 + 4 * ..5 + ..6) # Simpsonregel-Formel
+             )
+           )
+    ) 
+  
+
+# Speichern der Ergebnisse in die entsprechenden Spalten
+  for (j in seq_len(min(nrow(dat), num_points))) {
+    dev.df1[[paste0("EP.y", j)]][i] <- dat$EP.y[j]
+    dev.df1[[paste0("m", j)]][i] <- dat$m[j]
+    dev.df1[[paste0("fdd", j)]][i] <- dat$fdd[j]
+    dev.df1[[paste0("AUC", j)]][i] <- dat$AUC[j]
+  }
+  
+     # Speichern der Ergebnisse in die entsprechenden Spalten
+    # idx <- seq_len(min(nrow(dat), num_points))
+    # dev.df1[i, paste0("EP.y", idx)] <- dat$EP.y[idx]
+    # dev.df1[i, paste0("m", idx)] <- dat$m[idx]
+    # dev.df1[i, paste0("fdd", idx)] <- dat$fdd[idx]
+    # dev.df1[i, paste0("AUC", idx)] <- dat$AUC[idx]
+  
+ }
+#}  
+
+saveRDS(dev.df1, "dev_df1.rds")
+
+# Subset des DataFrames für die Modellierung
+dev.sub <- dev.df1 |> select( Klassifizierung, EP.y150:EP.y300, m150:m300, fdd150:fdd300, AUC150:AUC300)
+saveRDS(dev.sub, "dev_sub.rds")
+
+
+# Bestimmt die Anzahl der Kerne für R
+#num_workers <- max(1, availableCores() - 2)
+
+# Plan für die parallele Verarbeitung
+#plan(multisession, workers = 10)
+
+# Parallelisierte Verarbeitung aller Chromatogramme
+#future_lapply(seq_len(nrow(dev.df1)), fun.proc.ep)
+
+
+
+# Apply the function to each row of the data frame using lapply
+# dev.df2 <- lapply(seq_len(nrow(dev.df1)), function(i) {
+#   fun.proc.ep(dev.df1[i, , drop = FALSE], hex_column = "curve", num_points = num_points)
+# })
+
+# Combine the list of rows back into a single data frame
+#dev.df2 <- do.call(rbind, dev.df2)
+
+
+# Multi-Threading abschließen
+#plan(sequential) # Zurück zur Standardverarbeitung
+
+# Ergebnis: EPcsv1 enthält nun die neuen Spalten
+
+```
+
+```{r skimEPdata, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
+#| label: tbl-skimEPPeakData
+#| tbl-cap: EP-Daten mit Klassifikation und Peakdaten
+
+
+my_skim <- skim_with(base = sfl(
+  #Datentyp = skim_type,
+  #Variable = skim_variable,
+  fehlend = n_missing,
+  komplett = n_complete,
+  n = length
+))
+ft <-  flextable(my_skim(dev.df1))|> 
+  set_header_labels(skim_type = "Datentyp",
+                    skim_variable = "Variable",
+                    n_missing = "Fehlende Werte",
+                    n = "Anzahl",
+                    numeric.mean = "Mittelwert",
+                    numeric.sd = "Standardabweichung",
+                    numeric.p25 = "25%-Quantil",
+                    numeric.p50 = "50%-Quantil",
+                    numeric.p75 = "75%-Quantil",
+                    numeric.p0 = "Minimum",
+                    numeric.p100 = "Maximum",
+                    numeric.hist = "Histogramm",
+                    factor.n_unique =" Anzahl Faktoren") |>
+  autofit() |>
+  bold(part = "header") |>
+  align(align = "center", part = "all")
+ft
+```
+
 
 ## Formatieren von Daten {.justify}
 
