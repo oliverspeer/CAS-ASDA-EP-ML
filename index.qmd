@@ -20,3 +20,21 @@ cat("Version:\n",format(file.info("BusinessUnderstanding.qmd")$mtime,"%d. %B %Y"
 # Vorwort {.unnumbered}
 
 Dieses Quarto-Book beinhaltet die Kapitel des CRISP-DM-Prozesses. In der vorliegenden Version ist im wesentlichen jedoch nur das Kapitel "Business Understanding" ausformuliert. Dieses dient als Abriss (Abgabe 20.10.24) für das gesamte Auswertungskonzept (Präsentation KW2 / KW3 2025). 
+
+**toDo Liste:**
+`r Sys.Date()`
+
+- Extra spiked peaks im Data Understanding beschreiben
+
+- korrupierte Hexadecimalwerte im Data Understanding beschreiben
+
+- Data Understanding: beschreiben, dass Chromatogramme unterschiedliche Anzahl an Peaks haben,
+daher dagegen entschieden mit peakdetection zu arbieten, sonden von allen Messpunkten Höhe, Steigung, 2. Ableitung und AUC nach Simpson zu brechnen.
+
+- Simpsons versus trapez bei AUC Berechnung beschreiben, vielleicht Tabelle und Graphik zeigen die Simpson und  Trapez vergleicht
+
+
+
+
+
+
