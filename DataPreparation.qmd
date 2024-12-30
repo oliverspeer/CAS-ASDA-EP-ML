@@ -952,105 +952,40 @@ cluster5.ngrams |>
 
 ```
 
+#### Clusterzuordnung der Befundtexte als Klassifizierung
 
-<!-- # zusätzliche Textauswertung, die durch clustering überflüssig wurde------------ -->
-<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- # alternative Methode mit tidymodel und tidytext -->
-<!-- # Sparse-Matrix erstellen: Dokument-Term-Matrix -->
-<!-- # dtm <- tri.grams  |>  -->
-<!-- #   cast_sparse(ID, trigram, n) -->
-<!-- #  -->
-<!-- # # Daten als tibble (für tidymodels) -->
-<!-- # dtm_tibble <- as_tibble(as.matrix(dtm)) -->
-<!-- # dtm_tibble$id <- rownames(dtm) -->
-<!-- #  -->
-<!-- #  -->
-<!-- #  # Clustering mit k-means (tidymodels) -->
-<!-- #  set.seed(123) -->
-<!-- #   -->
-<!-- #  # Rezept für Clustering vorbereiten -->
-<!-- #  rec <- recipe(~ ., data = dtm_tibble) |> -->
-<!-- #    update_role(id, new_role = "id variable") |> -->
-<!-- #    step_normalize(all_numeric_predictors()) -->
-<!-- #   -->
-<!-- #  # Modell definieren: k-means -->
-<!-- #  kmeans_spec <- k_means(centers = 5) #|>   -->
-<!-- #    #set_engine("stats") -->
-<!-- #   -->
-<!-- #  # Workflow erstellen -->
-<!-- #  workflow <- workflow() |> -->
-<!-- #    add_recipe(rec) |> -->
-<!-- #    add_model(kmeans_spec) -->
-<!-- #   -->
-<!-- #  # Modell trainieren -->
-<!-- #  kmeans_fit <- workflow |> -->
-<!-- #    fit(data = dtm_tibble) -->
-<!-- #   -->
-<!-- #  # Cluster-Zuordnung -->
-<!-- #  cluster_assignments <- kmeans_fit |> -->
-<!-- #    extract_fit_parsnip() |> -->
-<!-- #    pluck("cluster") |> -->
-<!-- #    enframe(name = "document", value = "cluster") -->
-<!-- #   -->
-<!-- #  # Ergebnisse mit Originaltexten verknüpfen -->
-<!-- #  results <- texts |> -->
-<!-- #    left_join(cluster_assignments, by = c("id" = "document")) -->
-<!-- # #  -->
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# Cluster-Zuordnung
+EPcsv1  <-  EPcsv1 |> 
+  mutate(
+    Klassifizierung = case_when(
+      cluster3 == 1 ~ "MGradient",
+      cluster3 == 2 ~ "unauffällig",
+      cluster3 == 3 ~ "suspicous"
+    )|> 
+  as.factor()
+  ) 
 
-<!-- ``` -->
+# Anzahl der 3 verschiedenen Klassifizierungen als Barplot und Tabelle
+EPcsv1 |> 
+  ggplot(aes(x = Klassifizierung, fill = factor(cluster3))) +
+  geom_bar() +
+  labs(title = "Klassifizierung der Befundtexte",
+       x = "Klassifizierung",
+       y = "Anzahl") +
+  coord_flip() +
+  theme_minimal()
 
 
-<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- #Entfernen bestimmter Strings -->
-<!-- # Laden des stringr-Pakets -->
-<!-- library(stringr) -->
+ft <- EPcsv1 |> 
+  count(Klassifizierung) |> 
+  flextable() |>
+  width(j = 1, width = 3.5)
 
-<!-- # Definieren der zu entfernenden Phrasen -->
-<!-- phrasen <- c("ohne wesentliche Veränderung", "keine wesentliche Veränderung", "ohne signifikante Veränderung", "keine signifikante Veränderung") -->
-
-<!-- # Erstellen eines regulären Ausdrucks, der alle Phrasen abdeckt -->
-<!-- pattern <- paste(phrasen, collapse = "|") -->
-
-<!-- # Funktion zum Entfernen der Phrasen und Bereinigen der Zeichenkette -->
-<!-- entferne_phrasen <- function(text) { -->
-<!--   # Entfernen der definierten Phrasen -->
-<!--   text <- str_remove_all(text, pattern) -->
-<!--   return(text) -->
-<!-- } -->
-
-<!-- # Anwenden der Funktion auf den gesamten Vektor -->
-<!-- EPcsv1$Bef.ImFix <- sapply(EPcsv1$Bef.ImFix, entferne_phrasen) -->
+``` 
+  
 
 
-<!-- EPcsv1 <- EPcsv1 |>  -->
-<!--   mutate( -->
-<!--     suspicious = case_when( -->
-<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird suspicious NA -->
-<!--       grepl("M-Protein\\w|\\b(mono)?klonal(e|es|er|en)?\\b|Bande|Zonierung|Zonen|M-Protein|Para\\w|Inhomogen\\w|Unregelmässig\\w", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
-<!--       TRUE ~ 0 -->
-<!--     ), -->
-<!--     neg.phrase = case_when( -->
-<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA -->
-<!--       grepl("nicht|kein\\w|ohne|unauffällig", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
-<!--       TRUE ~ 0 -->
-<!--     ), -->
-<!--     EP.neg = case_when( -->
-<!--       is.na(Bef.EP) ~ NA,  # Falls Bef.EP NA ist, wird EP.neg NA -->
-<!--       grepl("unauffällig", Bef.EP, ignore.case = TRUE) ~ 1, -->
-<!--       TRUE ~ 0 -->
-<!--     ) -->
-<!--   ) -->
-<!-- ``` -->
-
-<!-- ### Weitere Auswertung der Befundtexte {.justify} -->
-<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- # filtern EPcsv1$suspicious == 1 & EPcsv1$neg.phrase == 1 -->
-<!-- EPcsv.red <- EPcsv1 |>  -->
-<!--   filter(suspicious == 1 & neg.phrase == 1 & EP.neg == 0) |>  -->
-<!--   select(ID, Bef.EP, Bef.ImFix, suspicious, neg.phrase, EP.neg) -->
-
-
-<!-- ``` -->
 
 ### peak detection im pathologischen Chromatogramm
 
@@ -1115,7 +1050,7 @@ library(pracma)
 
 
 
-hex.string <- dev.df$curve[EPcsv1$ID == 28]
+hex.string <- EPcsv1$curve[EPcsv1$ID == 5981]
 
 # Split the string into hexadecimal parts
 hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
@@ -1148,7 +1083,7 @@ text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels 
 #### Eintragen der decimalen Chromatogramm-Daten EPcsv1
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # kopieren der ersten 50 Zeilen von EPcsv1 in dev.df
-dev.df <- EPcsv1[1:50,]
+dev.df <- EPcsv1
 
 # Hex-String in decimale Y-Werte umwandeln
 convert.curve.to.y <- function(hex.string) {
@@ -1191,7 +1126,7 @@ dev.df <- dev.df |>
   mutate(peaks = list(detect.peaks(y.values$decimal.values)))
 
 # Peaks in Wide-Format transformieren
-extract.peak.data <- function(peaks, max.peaks = 9) {
+extract.peak.data <- function(peaks, max.peaks = 12) {
   peaks <- peaks[seq_len(min(nrow(peaks), max.peaks)), ]
   result <- as.list(rep(NA, max.peaks * 4))
   names(result) <- paste0(rep(paste0("peak", seq_len(max.peaks)), each = 4), c(".height", ".position", ".begin", ".end"))
@@ -1210,8 +1145,60 @@ dev.df <- dev.df |>
   mutate(peak.data = list(extract.peak.data(peaks))) |>
   unnest_wider(peak.data)
 
+
 ```
 
+
+```{r skimEPdata, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
+#| label: tbl-skimEPPeakData
+#| tbl-cap: EP-Daten mit Klassifikation und Peakdaten
+
+
+my_skim <- skim_with(base = sfl(
+  #Datentyp = skim_type,
+  #Variable = skim_variable,
+  fehlend = n_missing,
+  komplett = n_complete,
+  n = length
+))
+ft <-  flextable(my_skim(dev.df))|> 
+  set_header_labels(skim_type = "Datentyp",
+                    skim_variable = "Variable",
+                    n_missing = "Fehlende Werte",
+                    n = "Anzahl",
+                    numeric.mean = "Mittelwert",
+                    numeric.sd = "Standardabweichung",
+                    numeric.p25 = "25%-Quantil",
+                    numeric.p50 = "50%-Quantil",
+                    numeric.p75 = "75%-Quantil",
+                    numeric.p0 = "Minimum",
+                    numeric.p100 = "Maximum",
+                    numeric.hist = "Histogramm",
+                    factor.n_unique =" Anzahl Faktoren") |>
+  autofit() |>
+  bold(part = "header") |>
+  align(align = "center", part = "all")
+ft
+```
+
+### Testen der Chromatogramm-Daten Einträge
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# Testen der Chromatogramm-Daten Einträge
+# Select the columns of interest
+peak_columns <- dev.df  |> 
+  select(starts_with("peak") & ends_with("height")) |>   # Adjust this if column names vary
+  select(-contains("peaks"))  # Remove position columns
+
+# Check for values between 80 and 200 in each column
+peaks_in_range <- peak_columns  |> 
+  summarise(across(everything(), ~ any(. >= 80 & . <= 200)))
+
+# Output column names that have values in the range
+columns_with_values <- names(peaks_in_range)[peaks_in_range]
+
+# Results
+columns_with_values
+```
 ### Area Under the Curve (AUC)
 
 Die wichtigen Peaks für die Beurteilung einer Gammopathie sind die Peaks beta1, beta2, und gamma. Für diesen Bereicht des Chromatogramms werden im folgenden die Flächen zwischen den jeweils benachbarten Messpunkten berechnet.
@@ -1259,7 +1246,7 @@ Die grau eingefärbte Beispielfläche oben hat eine Fläche von:
 
 `r trapz(dat_filtered$ID[83:84], dat_filtered$decimal.values[83:84])`
 
-Somit werden pro Chromatogramm 139 Flächen (AUCs) als features berechnet.
+Somit werden pro Chromatogramm 292 Flächen (AUCs) als features berechnet.
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # calculate the area under the curve for a section
