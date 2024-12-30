@@ -24,14 +24,18 @@ Dieses Quarto-Book beinhaltet die Kapitel des CRISP-DM-Prozesses. In der vorlieg
 **toDo Liste:**
 `r Sys.Date()`
 
-- Extra spiked peaks im Data Understanding beschreiben
+- Data Understanding: Extra spiked peaks im Data Understanding beschreiben
 
-- korrupierte Hexadecimalwerte im Data Understanding beschreiben
+- Data Understanding: korrupierte Hexadecimalwerte im Data Understanding beschreiben
 
 - Data Understanding: beschreiben, dass Chromatogramme unterschiedliche Anzahl an Peaks haben,
 daher dagegen entschieden mit peakdetection zu arbieten, sonden von allen Messpunkten Höhe, Steigung, 2. Ableitung und AUC nach Simpson zu brechnen.
 
-- Simpsons versus trapez bei AUC Berechnung beschreiben, vielleicht Tabelle und Graphik zeigen die Simpson und  Trapez vergleicht
+- Data Preparation Simpsons versus trapez bei AUC Berechnung beschreiben, vielleicht Tabelle und Graphik zeigen die Simpson und  Trapez vergleicht
+
+- Data Preparation: Vergleich Tri-Gramme vs Uni-Gramme. Entscheid Unigramme für kmeans da ansonste Matrix zu sparse beschreiben
+
+- Data Preparation: beschreiben, dass die Daten in 3 Datensätze aufgeteilt wurden, um die Modelle zu trainieren und zu testen
 
 
 
