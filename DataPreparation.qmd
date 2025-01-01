@@ -649,10 +649,7 @@ EPcsv3 <- EPcsv1|>
 EPcsv.uni <- EPcsv1|> 
   unnest_tokens(trigram, Bef.ImFix_cleaned, to_lower =TRUE, drop = FALSE)
 
-# save EPcsv3 as RDS
-saveRDS(EPcsv1, "EPcsv1.rds")
-saveRDS(EPcsv3, "EPcsv3.rds")
-saveRDS(EPcsv.uni, "EPcsv.uni.rds")
+
 
 ```
 
@@ -760,8 +757,8 @@ ggplot(results, aes(x = nstart, y = tot_withinss)) +
 # K-Means Clustering
 set.seed(8173)
 kmeans_model.c3 <- kmeans(tri.grams.matrix, centers = 3, nstart = 25)
-kmeans_model.c4 <- kmeans(tri.grams.matrix, centers = 4, nstart = 25)
-kmeans_model.c5 <- kmeans(tri.grams.matrix, centers = 5, nstart = 25)
+#kmeans_model.c4 <- kmeans(tri.grams.matrix, centers = 4, nstart = 25)
+#kmeans_model.c5 <- kmeans(tri.grams.matrix, centers = 5, nstart = 25)
 #kmeans_model.c6 <- kmeans(tri.grams.matrix, centers = 6, nstart = 25)
 
 
@@ -968,6 +965,18 @@ EPcsv1  <-  EPcsv1 |>
   as.factor()
   ) 
 
+# Speichern der Cluster und Klassifizierung
+saveRDS(EPcsv1, "EPcsv1.rds")
+saveRDS(EPcsv3, "EPcsv3.rds")
+saveRDS(EPcsv.uni, "EPcsv.uni.rds")
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-class_distribution
+#| fig-cap: Verteilung der Klassifizierungen
+
+EPcsv1 <- readRDS("EPcsv1.rds")
 # Anzahl der 3 verschiedenen Klassifizierungen als Barplot und Tabelle
 EPcsv1 |> 
   ggplot(aes(x = Klassifizierung, fill = factor(cluster3))) +
@@ -977,14 +986,19 @@ EPcsv1 |>
        y = "Anzahl") +
   coord_flip() +
   theme_minimal()
+```
 
 
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-class_distribution
+#| tbl-cap: Verteilung der Klassifizierungen
 ft <- EPcsv1 |> 
   count(Klassifizierung) |> 
   flextable() |>
   width(j = 1, width = 3.5)
+ft
 
-``` 
+```
   
 
 
@@ -1159,6 +1173,8 @@ text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels 
 Die wichtigen Peaks für die Beurteilung einer Gammopathie sind die Peaks beta1, beta2, und gamma. Für diesen Bereicht des Chromatogramms werden im folgenden die Flächen zwischen den jeweils benachbarten Messpunkten berechnet.
 
 ```{r, message=FALSE, warning=FALSE}
+#| label: fig-betagamma
+#| fig-cap: Darstellung des kathodischen Teils mit den Peaks beta1, beta2 und gamma
 # Filtern des Datensatzes für den gewünschten ID-Bereich
 dat_filtered <- subset(dat, ID >= 160)
 
@@ -1247,9 +1263,7 @@ Dies erlaubt dann evtl weiter Möglichkeiten über das vorliegende Projekt hinau
 ## Integrieren und formatieren von Daten {.justify}
 
 
-
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 library(tibble)
 library(dplyr)
 library(purrr)
@@ -1319,9 +1333,7 @@ for (col_name in c("EP.y", "m", "fdd", "AUC")) {
 
 saveRDS(dev.df1, "dev_df1.rds")
 
-# Subset des DataFrames für die Modellierung
-dev.sub <- dev.df1 |> select( Klassifizierung, EP.y150:EP.y300, m150:m300, fdd150:fdd300, AUC150:AUC300)
-saveRDS(dev.sub, "dev_sub.rds")
+
 
 
 # Bestimmt die Anzahl der Kerne für R
@@ -1353,8 +1365,9 @@ saveRDS(dev.sub, "dev_sub.rds")
 
 ```{r skimEPdata, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
 #| label: tbl-skimEPPeakData
-#| tbl-cap: EP-Daten mit Klassifikation und Peakdaten
+#| tbl-cap: EP-Daten mit Klassifikation und Features
 
+dev.df1 <- readRDS("dev_df1.rds")
 
 my_skim <- skim_with(base = sfl(
   #Datentyp = skim_type,
@@ -1384,6 +1397,77 @@ ft
 ```
 
 
-## Formatieren von Daten {.justify}
+## Datenvorbereitung für die Modellierung {.justify}
+
+### Auswahl der relevanten Features {.justify}
+In der vorliegenden Arbeit möchte ich, wenigstens in einem ersten Schritt auf ein Model zur Unterstützung der Gammopathie-Erkennung fokusieren. Diese werden vorallem durch aberante Peaks in den beta1-, beta2- und gamma-Fraktionen erkannt. 
+Daher wähle ich zunächste die Signalhöhen (EP.y), die zugehörigen Steigungen (m), die zweite Ableitung (fdd) und die Flächen unter den Peaks (AUC) in den zweiten Hälften der Chromatogramme - also Messpunkte 150 bis 300, als Features für die Modellierung aus.
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# Auswahl der relevanten Features
+# Subset des DataFrames für die Modellierung
+#dev.sub <- dev.df1 |> select( Klassifizierung, EP.y150:EP.y300, m150:m300, fdd150:fdd300, AUC150:AUC300)
+#saveRDS(dev.sub, "dev_sub.rds")
+
+EPdata <- readRDS("dev_sub.rds")
+```
 
 
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-skimEPdata
+#| tbl-cap: EP-Daten mit Klassifikation und Features
+ft <-  flextable(my_skim(EPdata))|> 
+  set_header_labels(skim_type = "Datentyp",
+                    skim_variable = "Variable",
+                    n_missing = "Fehlende Werte",
+                    n = "Anzahl",
+                    numeric.mean = "Mittelwert",
+                    numeric.sd = "Standardabweichung",
+                    numeric.p25 = "25%-Quantil",
+                    numeric.p50 = "50%-Quantil",
+                    numeric.p75 = "75%-Quantil",
+                    numeric.p0 = "Minimum",
+                    numeric.p100 = "Maximum",
+                    numeric.hist = "Histogramm",
+                    factor.n_unique =" Anzahl Faktoren") |>
+  autofit() |>
+  bold(part = "header") |>
+  align(align = "center", part = "all")
+ft
+
+
+```
+
+### Aufteilen der Daten in Trainings-, Validierungs- und Testdaten {.justify}
+Ich versuche schon an diesem Punkt mit den Schritten des "Tidymodeling" zu arbeiten .
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(tidymodels)
+
+
+# Aufteilen der Daten in 60% Trainings-, 20% Validierungs- und  20% Testdaten
+set.seed(8173)
+EP.split <- EPdata |> 
+  initial_validation_split(prop = c(0.6, 0.2), strata = Klassifizierung)
+EP.split
+
+
+```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+EPtraining <- training(EP.split)
+saveRDS(EPtraining, "EPtraining.rds")
+
+EPvalidation <- validation(EP.split)
+saveRDS(EPvalidation, "EPvalidation.rds")
+
+EPtesting <- testing(EP.split)
+```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-EPsplit
+#| tbl-cap: Aufteilung der Daten in Trainings-, Validierungs- und Testdaten
+
+
+
+```
