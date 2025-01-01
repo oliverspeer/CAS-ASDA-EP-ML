@@ -14,16 +14,200 @@ cat("Version:\n",format(file.info("Modeling.qmd")$mtime,"%d. %B %Y"))
 :::
 :::::
 
-
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+source("StartUp.R")
+StartUpRoutine()
+```
 
 # Modeling {.unnumbered}
-[text & code folgt]{style="#00008B"}
+
 
 ## Auswählen der Modellierungsverfahren {.justify}
+- erster Schritt: Random Forest
+- zweiter Schritt: logistische Regression mit den wichtigsten Variablen aus dem Random Forest
 
 ## Generieren eines Testdesigns {.justify}
+### Ziel
+Das Modell muss die Klasse *"MGradient"* mit einer Spezifität von 95% und einer Sensitivität von 80% identifizieren.
+
+### Datenaufteilung
+Wie in "Tidy Modeling with R" beschrieben, werde ich die Daten in   
+- 60% Trainingsdaten  
+- 20% Validationsdaten  
+- 20% Testdaten   
+aufteilen.
+
+### Testmethodik
+1) Hyperparamtertuning eines random forest mit 10-facher Kreuzvalidierung (Trainigsdaten)  
+evtl an downsampling denken.  
+
+2) Auswahl des besten random forst Models    
+Metriken: ROC-AUC, F1-Score, Precision-Recall-AUC  
+3) Auswahl der  wichtigsten Variablen (variable importance)  
+Untersuchung der Wichtigkeit mit gini importance und permutation importance  
+Anzahl der wichtigsten Variablen erreicht 95% der Gesamtwichtigkeit (95% importance score)  
+4) Training & Tuning einer logistischen Regression / Lasso-Regression mit diesen wichtigsten   Variablen (Trainingsdaten)    
+5) Hyperparamtertuning einer logistischen Regression mit 10-facher Kreuzvalidierung (Trainingsdaten)    
+6) Auswahl des besten Regressionsmodels    
+Metriken: ROC-AUC, F1-Score, Precision-Recall-AUC  
+7) Vergleich des besten random forest und der besten Regression auf den Validationsdaten  
+8) Auswahl des sinnvollsten Models (Einsatz im Alltag, IT-ressourcen etc als Entscheidungsgrundlage)
+9) Testen des finales Models auf den Test-Daten  
+Metriken: ROC-AUC, F1-Score, Precision-Recall-AUC, Confusion Matrix
+
+### Evaluationsmetriken
+- Sensitivität und ROC-AUC 
+- overall classification accuracy (?)
 
 ## Erstellen der Modelle {.justify}
+### Random Forest {.justify}
+```{r random forest, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(tidymodels)
+library(ranger)
 
+# Modell Definition
+rf.mod <- 
+  rand_forest(trees = 1000) |> 
+  set_engine("ranger") |>
+  set_mode("classification")
+
+# Modell Training
+set.seed(8173)
+rf.fit <- 
+  rf.mod |> 
+  fit(Klassifizierung ~ ., data = EPtraining)
+rf.fit
+saveRDS(rf.fit, "rf_fit.rds")
+rf.fit <- readRDS("rf_fit.rds")
+
+```
+### resampling {.justify}
+```{r resampling, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# resampling
+EPvalidation <- readRDS("EPvalidation.rds")
+set.seed(8173)
+folds <- vfold_cv(EPvalidation, v = 10)
+folds
+
+# workflow Definition
+rf.wf <- workflow() |>
+  add_model(rf.mod) |>
+  add_formula(Klassifizierung ~ .)
+
+
+
+  
+``` 
 ## Bewerten des Modells {.justify}
 
+### Sensitivität und ROC-AUC {.justify}
+```{r sensitivity, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# Sensitivität und ROC-AUC
+# resampling
+rf.res <- 
+  rf.wf |>
+  fit_resamples(resamples = folds)
+saveRDS(rf.res, "rf_res10k.rds")
+rf.res <- readRDS("rf_res10k.rds")
+#rf.res
+
+collect_metrics(rf.res) 
+
+
+
+```
+
+
+### Tuning {.justify}
+```{r tuning, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Tuning
+tune.spec <- decision_tree(
+  cost_complexity = tune(),
+  tree_depth = tune()
+) |> 
+  set_engine("rpart") |> 
+  set_mode("classification")
+
+tune.spec
+
+tree.grid <- grid_regular(
+  cost_complexity(),
+  tree_depth(),
+  levels = 5
+)
+
+tree.grid
+
+set.seed(8173)
+tune.wf <- workflow() |>
+  add_model(tune.spec) |>
+  add_formula(Klassifizierung ~ .)
+
+tune.res <- 
+  tune.wf |>
+  tune_grid(
+    resamples = folds,
+    grid = tree.grid#,
+    #control = control_grid(save_pred = TRUE)
+  )
+saveRDS(tune.res, "tune_res.rds")
+```
+
+
+```{r figtuning, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-tuning
+#| fig.cap: tree depth und cost complexity tuning
+tune.res <- readRDS("tune_res.rds")
+
+tune.res |> 
+  collect_metrics()  |>
+  mutate(tree_depth = factor(tree_depth)) |>
+  ggplot(aes(cost_complexity, mean, color = tree_depth)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0) +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  labs(
+    x = "cost complexity",
+    y = "mean",
+    color = "tree depth"
+  )
+
+
+```
+
+```{r figtuning1, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-tuning1
+#| fig.cap: tree depth und cost complexity tuning
+tune.res <- readRDS("tune_res.rds")
+
+tune.res |> 
+  collect_metrics()  |>
+  mutate(tree_depth = factor(tree_depth)) |>
+  ggplot(aes(cost_complexity, mean, color = tree_depth)) +
+  geom_line(size = 1.5, alpha = 0.6) +
+  geom_point(size = 2) +
+  facet_wrap(~ .metric, scales = "free", nrow = 2) +
+  scale_x_log10(labels = scales::label_number()) +
+  scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+```
+
+
+```{r tabtuningROC, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-tuningROC
+#| tab.cap: Tuning ROC-AUC Ergebnisse 
+
+tune.res |> 
+  show_best(metric = "roc_auc")
+```
+
+
+```{r tabtuningAccur, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-tuningAccur
+#| tab.cap: Tuning Accuracy Ergebnisse
+tune.res |> 
+  show_best(metric = "accuracy")
+```
