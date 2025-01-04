@@ -976,7 +976,7 @@ saveRDS(EPcsv.uni, "EPcsv.uni.rds")
 #| label: fig-class_distribution
 #| fig-cap: Verteilung der Klassifizierungen
 
-EPcsv1 <- readRDS("EPcsv1.rds")
+EPcsv1 <- readRDS("~/CAS-EP&ML/dev_df1.rds")
 # Anzahl der 3 verschiedenen Klassifizierungen als Barplot und Tabelle
 EPcsv1 |> 
   ggplot(aes(x = Klassifizierung, fill = factor(cluster3))) +
@@ -1403,11 +1403,19 @@ ft
 In der vorliegenden Arbeit möchte ich, wenigstens in einem ersten Schritt auf ein Model zur Unterstützung der Gammopathie-Erkennung fokusieren. Diese werden vorallem durch aberante Peaks in den beta1-, beta2- und gamma-Fraktionen erkannt. 
 Daher wähle ich zunächste die Signalhöhen (EP.y), die zugehörigen Steigungen (m), die zweite Ableitung (fdd) und die Flächen unter den Peaks (AUC) in den zweiten Hälften der Chromatogramme - also Messpunkte 150 bis 300, als Features für die Modellierung aus.
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Auswahl der relevanten Features
 # Subset des DataFrames für die Modellierung
-#dev.sub <- dev.df1 |> select( Klassifizierung, EP.y150:EP.y300, m150:m300, fdd150:fdd300, AUC150:AUC300)
-#saveRDS(dev.sub, "dev_sub.rds")
+dev.df1 <- readRDS("dev_df1.rds")
+dev.sub <- dev.df1 |> 
+  select( ID, 
+          Klassifizierung, 
+          EP.y150:EP.y300, 
+          m150:m300, 
+          fdd150:fdd300, 
+          AUC150:AUC300)
+
+saveRDS(dev.sub, "dev_sub.rds")
 
 EPdata <- readRDS("dev_sub.rds")
 ```
@@ -1451,6 +1459,8 @@ EP.split <- EPdata |>
   initial_validation_split(prop = c(0.6, 0.2), strata = Klassifizierung)
 EP.split
 
+saveRDS(EP.split, "EP_split.rds")
+
 
 ```
 
@@ -1461,7 +1471,7 @@ saveRDS(EPtraining, "EPtraining.rds")
 EPvalidation <- validation(EP.split)
 saveRDS(EPvalidation, "EPvalidation.rds")
 
-EPtesting <- testing(EP.split)
+#EPtesting <- testing(EP.split)
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
