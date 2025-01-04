@@ -17,6 +17,10 @@ cat("Version:\n",format(file.info("Modeling.qmd")$mtime,"%d. %B %Y"))
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 source("StartUp.R")
 StartUpRoutine()
+
+# close connection con
+dbDisconnect(con)
+
 ```
 
 # Modeling {.unnumbered}
@@ -61,10 +65,64 @@ Metriken: ROC-AUC, F1-Score, Precision-Recall-AUC, Confusion Matrix
 
 ## Erstellen der Modelle {.justify}
 ### Random Forest {.justify}
-```{r random forest, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r random forest tuning, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 library(tidymodels)
 library(ranger)
+library(vip)
 
+# Daten einlesen
+EPtraining <- readRDS("EPtraining.rds")
+EPvalidation <- readRDS("EPvalidation.rds")
+
+# recipe building
+tree.rec <- 
+  recipe(Klassifizierung ~ ., data = EPtraining) |>
+  update_role(ID, new_role = "ID") 
+
+tree.prep <- prep(tree.rec)
+juiced <- juice(tree.prep)
+
+# tune setting
+tune.spec <- rand_forest(
+  mtry = tune(),
+  trees = 1000,
+  min_n = tune()
+) |> 
+  set_mode("classification")  |> 
+  set_engine("ranger")
+
+# workflow
+tune.wf <- workflow() |>
+  add_recipe(tree.rec) |>
+  add_model(tune.spec)
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPtraining, v = 10)
+
+
+
+# doParallel::registerDoParallel()
+library(future)
+plan(multisession, workers = 10)
+
+# tuning
+set.seed(8173)
+tune.res <- tune_grid(parallel_over = "resamples",
+  tune.wf,
+  resamples = EPfolds,
+  grid = 20
+)
+
+
+
+future::plan("sequential")
+
+saveRDS(tune.res, "tune_resRF.rds")
+```
+
+
+```{r random forest, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # Modell Definition
 rf.mod <- 
   rand_forest(trees = 1000) |> 
