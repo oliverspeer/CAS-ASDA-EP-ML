@@ -2,7 +2,8 @@ StartUpRoutine <- function() {
   # Vector of libraries
   packages <- c("readxl", 
                 "data.table", 
-                "tidyverse", 
+                "tidyverse",
+                "tidymodels",
                 "zoo", 
                 "plotly", 
                 "lubridate", 
