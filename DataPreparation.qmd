@@ -635,10 +635,11 @@ unigram |>
 Nach Bereinigung und Korrektur können die Befundtext tokenisiert werden.  
 
 ### Tokenisierung {.justify}
-Beim tokenisieren wird der Befundtext in einzelne Wörter zerlegt, alles auf Kleinbuchstaben umgewandelt und die Wörter als Tri-Grame abgespeichert.<br>
-Die Trigrame geben den Kontext der Wörter wieder und können als Features für die Klassifizierung verwendet werden.
+Beim tokenisieren wird der Befundtext in einzelne Wörter zerlegt, alles auf Kleinbuchstaben umgewandelt und die Wörter als Tri-Grame und Uni-Gramme abgespeichert. Die Trigrame geben den Kontext der Wörter wieder und können als Features für die Klassifizierung verwendet werden.<br>
+Für das kommende Clustering wären Tri-Gramme zwar von Interesse, jedoch hat es von den jeweiligen Trigrammen nur realtiv wenige. Daraus würde eine "sparse matrix" entstehen. Daher werden die Uni-Gramme für das Clustering verwendet.
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Zeilen mit Bef.ImFix_cleaned = "" entfernen
 EPcsv1 <- EPcsv1 |> 
   filter(Bef.ImFix_cleaned != "")
@@ -653,10 +654,12 @@ EPcsv.uni <- EPcsv1|>
 
 ```
 
-### Häufigste Trigramme {.justify}
+### Häufigste Unigramme {.justify}
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
 #| label: tbl-trigram
 #| tbl-cap: Häufigste Unigramme in den Befundtexten
+
+EPcsv.uni <- readRDS("EPcsv.uni.rds")
   
 #Bef.ImFix.freq.ngram <- 
 EPcsv.uni |> 
@@ -679,16 +682,9 @@ EPcsv.uni |>
 ### Clustering und Klassifizierung der Befundtexte {.justify}
 Als "ground truth" für die Auswertung der Chromatogramme dienen die Befundtexte der Immunfixationen. Diese Befundtext werden im folgenden geclustert und klassifiziert.
 
-#### Usupervised Clustering mit tidymodeling, tidytext und K-Means {.justify}
+#### Unsupervised Clustering mit K-Means {.justify}
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# Benötigte Pakete
-library(tidyverse)
-# library(tidytext)
-# library(tidymodels)
-# library(textrecipes)
-# library(tidyclust)
-``` 
+
 
 
 <!-- Zuerst werden die strings "unauffällig" von EP.csv3$Bef.ImFix_cleaned nach trigrams kopiert -->
@@ -713,16 +709,31 @@ tri.grams.matrix <- tri.grams |>
   as.matrix()
 ```
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(furrr)
+library(future)
+
+plan(multisession, workers = 10)
+
 set.seed(8173)
-wss <- map_dbl(1:10, ~ kmeans(tri.grams.matrix, centers = ., nstart = 25)$tot.withinss)
+wss <- future_map_dbl(
+  1:10, 
+  ~ kmeans(tri.grams.matrix, centers = ., nstart = 25)$tot.withinss,
+  .options = furrr_options(seed = TRUE)
+)
+
+plan(sequential)
+
+saveRDS(wss, "wss.rds")
 ```
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-cluster
 #| fig-cap: Elbow-Plot
-#| 
+
+wss <- readRDS("wss.rds")
+
 # Elbow-Plot
 plot(1:10, wss, type = "b", pch = 19, frame = FALSE,
      xlab = "Anzahl der Cluster",
@@ -731,19 +742,45 @@ plot(1:10, wss, type = "b", pch = 19, frame = FALSE,
 ```
 
 
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+
+
+library(furrr)
+library(future)
+library(tibble)
+
+plan(multisession, workers = 4)
+
+set.seed(8173)
+
+# verschiedene Werte für nstart
+nstart_values <- c(1, 5, 10, 25 #, 50, 100
+                   )
+
+# K-Means mit verschiedenen nstart-Werten parallelisiert
+results.nstart <- future_map_dfr(nstart_values, function(nstart) {
+  model <- kmeans(tri.grams.matrix, centers = 4, nstart = nstart)
+  tibble(nstart = nstart, tot_withinss = model$tot.withinss)
+}, .options = furrr_options(seed = TRUE))
+
+# results <- map_dfr(nstart_values, function(nstart) {
+#   model <- kmeans(tri.grams.matrix, centers = 4, nstart = nstart)
+#   tibble(nstart = nstart, tot_withinss = model$tot.withinss)
+# })
+
+plan(sequential)
+
+saveRDS(results.nstart, "results_nstart.rds")
+
+```
+
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-nstart
 #| fig-cap: Optimierung von nstart
-# verschiedene Werte für nstart
-nstart_values <- c(1, 5, 10, 25, 50#, 100
-                   )
-results <- map_dfr(nstart_values, function(nstart) {
-  model <- kmeans(tri.grams.matrix, centers = 4, nstart = nstart)
-  tibble(nstart = nstart, tot_withinss = model$tot.withinss)
-})
 
+results.nstart <- readRDS("results_nstart.rds")
 # Plot der Ergebnisse
-ggplot(results, aes(x = nstart, y = tot_withinss)) +
+ggplot(results.nstart, aes(x = nstart, y = tot_withinss)) +
   geom_line() +
   geom_point() +
   labs(title = "",
@@ -753,12 +790,12 @@ ggplot(results, aes(x = nstart, y = tot_withinss)) +
 ```
 
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # K-Means Clustering
 set.seed(8173)
 kmeans_model.c3 <- kmeans(tri.grams.matrix, centers = 3, nstart = 25)
-#kmeans_model.c4 <- kmeans(tri.grams.matrix, centers = 4, nstart = 25)
-#kmeans_model.c5 <- kmeans(tri.grams.matrix, centers = 5, nstart = 25)
+kmeans_model.c4 <- kmeans(tri.grams.matrix, centers = 4, nstart = 25)
+kmeans_model.c5 <- kmeans(tri.grams.matrix, centers = 5, nstart = 25)
 #kmeans_model.c6 <- kmeans(tri.grams.matrix, centers = 6, nstart = 25)
 
 
@@ -768,14 +805,16 @@ kmeans_model.c3 <- kmeans(tri.grams.matrix, centers = 3, nstart = 25)
 # Cluster zuordnen
 EPcsv1 <- EPcsv1 |> 
   mutate(cluster3 = kmeans_model.c3$cluster#,
-         #cluster4 = kmeans_model.c4$cluster,
-         #cluster5 = kmeans_model.c5$cluster
+         cluster4 = kmeans_model.c4$cluster,
+         cluster5 = kmeans_model.c5$cluster
          )
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-3cluster in wordcloud
 #| fig-cap: 3 Cluster - Wortwolken
+#| 
+EPcsv1 <- readRDS("dev.df1.rds")
 
 library(wordcloud)
 cluster3.ngrams <- EPcsv1 |> 
@@ -953,7 +992,7 @@ cluster5.ngrams |>
 
 #### Clusterzuordnung der Befundtexte als Klassifizierung
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Cluster-Zuordnung
 EPcsv1  <-  EPcsv1 |> 
   mutate(
@@ -1003,9 +1042,10 @@ ft
 
 
 
-### peak detection im pathologischen Chromatogramm
+### Pathologisches Chromatogramm
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-peak-patho
 
 library(pracma)
 
@@ -1044,6 +1084,9 @@ text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels 
 
 
 ``` 
+
+Im folgenden werden die Steigungen m, zweite Ableitungen fdd und die Flächen AUC bei allen Datenpunkten der Chromatogramme berechnet.
+
 <!-- # ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
 <!-- # # calculate the area under the curve for all peaks -->
 <!-- #  -->
@@ -1059,42 +1102,42 @@ text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels 
 <!-- # -->
 <!-- #``` -->
 
-### peak detection im normalen Chromatogramm
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+<!-- ### Normales Chromatogramm -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
 
-library(pracma)
-
-
-
-hex.string <- EPcsv1$curve[EPcsv1$ID == 2705]
-
-# Split the string into hexadecimal parts
-hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
-
-# Convert each hex part to decimal
-decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
-
-# dataframe with hexadecimal and decimal values
-dat <- as.data.frame(decimal.values)
-dat$decimal.values <- rev(dat$decimal.values)
-dat$hex.parts <- hex.parts
-dat$ID <- seq_len( nrow(dat) ) 
-
-# delete rows with decimal values >10000
-dat <- dat[dat$decimal.values < 10000,]
-
-peaks <- findpeaks(dat$decimal.values, npeaks = 15, nups = 2, ndowns = 0, minpeakheight = 80)
+<!-- library(pracma) -->
 
 
-plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "EP Chromatogramm mit detektierten Peaks")
-points(dat$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
-abline(v = dat$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks
-abline(v = dat$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks
-abline(v = dat$ID[160], col = "orange", lty = 2)
-text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels = c("Albumin", "alpha 1", "alpha 2", "beta 1", "beta 2", "gamma"),
-     pos = c(2, 3, 3, 3, 3, 3), offset = 0.5  , col = "darkgreen")
 
-``` 
+<!-- hex.string <- EPcsv1$curve[EPcsv1$ID == 2705] -->
+
+<!-- # Split the string into hexadecimal parts -->
+<!-- hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4)) -->
+
+<!-- # Convert each hex part to decimal -->
+<!-- decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x))) -->
+
+<!-- # dataframe with hexadecimal and decimal values -->
+<!-- dat <- as.data.frame(decimal.values) -->
+<!-- dat$decimal.values <- rev(dat$decimal.values) -->
+<!-- dat$hex.parts <- hex.parts -->
+<!-- dat$ID <- seq_len( nrow(dat) )  -->
+
+<!-- # delete rows with decimal values >10000 -->
+<!-- dat <- dat[dat$decimal.values < 10000,] -->
+
+<!-- peaks <- findpeaks(dat$decimal.values, npeaks = 15, nups = 2, ndowns = 0, minpeakheight = 80) -->
+
+
+<!-- plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "EP Chromatogramm mit detektierten Peaks") -->
+<!-- points(dat$ID[peaks[,2]], peaks[,1], col = "red", pch = 20) -->
+<!-- abline(v = dat$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks -->
+<!-- abline(v = dat$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks -->
+<!-- abline(v = dat$ID[160], col = "orange", lty = 2) -->
+<!-- text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels = c("Albumin", "alpha 1", "alpha 2", "beta 1", "beta 2", "gamma"), -->
+<!--      pos = c(2, 3, 3, 3, 3, 3), offset = 0.5  , col = "darkgreen") -->
+
+<!-- ```  -->
 
 
 
@@ -1170,11 +1213,19 @@ text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels 
 
 ### Area Under the Curve (AUC)
 
-Die wichtigen Peaks für die Beurteilung einer Gammopathie sind die Peaks beta1, beta2, und gamma. Für diesen Bereicht des Chromatogramms werden im folgenden die Flächen zwischen den jeweils benachbarten Messpunkten berechnet.
+Die wichtigen Peaks für die Beurteilung einer Gammopathie sind die Peaks beta1, beta2, und gamma. Für diesen Bereicht des Chromatogramms werden im folgenden die Flächen zwischen den jeweils 3 benachbarten Messpunkten nach Simpson berechnet.
 
 ```{r, message=FALSE, warning=FALSE}
 #| label: fig-betagamma
 #| fig-cap: Darstellung des kathodischen Teils mit den Peaks beta1, beta2 und gamma
+
+source("fun.prep.EP.data.R")
+
+dat <- fun.prep.EP.data(1675)
+
+# Entfernen von Werten > 10000
+dat <- dat[dat$decimal.values < 10000,]
+
 # Filtern des Datensatzes für den gewünschten ID-Bereich
 dat_filtered <- subset(dat, ID >= 160)
 
@@ -1206,8 +1257,8 @@ text(x = dat_filtered$ID[peaks_filtered[, 2] - 159],
              3, 3, 4), offset = 1, col = "darkgreen")
 
 # Hinzufügen eines schattierten Bereichs zwischen ID 239 und 240
-polygon(c(dat_filtered$ID[83:84], rev(dat_filtered$ID[83:84])),
-        c(dat_filtered$decimal.values[83:84], rep(0, length(dat_filtered$decimal.values[83:84]))),
+polygon(c(dat_filtered$ID[90:92], rev(dat_filtered$ID[90:92])),
+        c(dat_filtered$decimal.values[90:92], rep(0, length(dat_filtered$decimal.values[90:92]))),
         col = "gray", border = NA)
 
 
@@ -1215,9 +1266,9 @@ polygon(c(dat_filtered$ID[83:84], rev(dat_filtered$ID[83:84])),
 Die grau eingefärbte Beispielfläche oben hat eine Fläche von:  
 
 
-`r trapz(dat_filtered$ID[83:84], dat_filtered$decimal.values[83:84])`
+`r trapz(dat_filtered$ID[90:92], dat_filtered$decimal.values[90:92])`
 
-Somit werden pro Chromatogramm 292 Flächen (AUCs) als features berechnet.
+Somit werden pro Chromatogramm 300 Flächen (AUCs) als features berechnet.
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # calculate the area under the curve for a section
@@ -1231,7 +1282,7 @@ dat$AUC[is.na(dat$AUC)] <- 0
 
 ### Steigungen vor den Peaks
 Adäquat wird zwischen diesen Punktepaaren auch die Steigung berechnet
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # calculate the slopes between the points 160 to 300
 dat$slopes <- rep(0, nrow(dat))
 for (i in 1:(nrow(dat))) {
@@ -1245,7 +1296,7 @@ dat$slopes[is.na(dat$slopes)] <- 0
 ```
 
 ### zweite Ableitung vor den Peaks 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # calculate the second derivatives 
 
 dat$der <- rep(NA, nrow(dat))
@@ -1261,6 +1312,10 @@ Dies erlaubt dann evtl weiter Möglichkeiten über das vorliegende Projekt hinau
 
 
 ## Integrieren und formatieren von Daten {.justify}
+
+::: {.panel-tabset}
+
+### Generieren der Steigungen m, Ableitungen fdd, und Flächen AUC und Speichern der Daten {.justify}
 
 
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
@@ -1363,6 +1418,7 @@ saveRDS(dev.df1, "dev_df1.rds")
 
 ```
 
+### Überblick über die Daten {.justify}
 ```{r skimEPdata, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
 #| label: tbl-skimEPPeakData
 #| tbl-cap: EP-Daten mit Klassifikation und Features
@@ -1396,8 +1452,11 @@ ft <-  flextable(my_skim(dev.df1))|>
 ft
 ```
 
+:::
 
 ## Datenvorbereitung für die Modellierung {.justify}
+
+::: {.panel-tabset}
 
 ### Auswahl der relevanten Features {.justify}
 In der vorliegenden Arbeit möchte ich, wenigstens in einem ersten Schritt auf ein Model zur Unterstützung der Gammopathie-Erkennung fokusieren. Diese werden vorallem durch aberante Peaks in den beta1-, beta2- und gamma-Fraktionen erkannt. 
@@ -1417,13 +1476,17 @@ dev.sub <- dev.df1 |>
 
 saveRDS(dev.sub, "dev_sub.rds")
 
-EPdata <- readRDS("dev_sub.rds")
+
 ```
 
+### Überblick über die Daten {.justify}
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: tbl-skimEPdata
 #| tbl-cap: EP-Daten mit Klassifikation und Features
+
+EPdata <- readRDS("dev_sub.rds")
+
 ft <-  flextable(my_skim(EPdata))|> 
   set_header_labels(skim_type = "Datentyp",
                     skim_variable = "Variable",
@@ -1446,10 +1509,12 @@ ft
 
 ```
 
+:::
+
 ### Aufteilen der Daten in Trainings-, Validierungs- und Testdaten {.justify}
 Ich versuche schon an diesem Punkt mit den Schritten des "Tidymodeling" zu arbeiten .
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 library(tidymodels)
 
 
@@ -1457,14 +1522,14 @@ library(tidymodels)
 set.seed(8173)
 EP.split <- EPdata |> 
   initial_validation_split(prop = c(0.6, 0.2), strata = Klassifizierung)
-EP.split
+
 
 saveRDS(EP.split, "EP_split.rds")
 
 
 ```
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 EPtraining <- training(EP.split)
 saveRDS(EPtraining, "EPtraining.rds")
 
@@ -1478,6 +1543,8 @@ saveRDS(EPvalidation, "EPvalidation.rds")
 #| label: tbl-EPsplit
 #| tbl-cap: Aufteilung der Daten in Trainings-, Validierungs- und Testdaten
 
+EP.split <- readRDS("EP_split.rds")
+EP.split
 
 
 ```
