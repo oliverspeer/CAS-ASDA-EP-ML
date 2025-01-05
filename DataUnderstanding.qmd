@@ -85,14 +85,13 @@ ft
 
 [\$Bef.ImFix:]{.underline} Befundtexte / Interpretationen, die von Labormitareitern zu den Immunfixationen (falls vorhanden) erstellt wurden. Auch hier werden ähnliche Formulierungen verwendet wie bei der EP-Befundung. Diese sind jedoch nicht standardisiert, kommen in vielen Varianten vor inkl Tippfehlern.<br> Fehlende Daten: `r sum(is.na(EPcsv$Bef.ImFix))`
 
-[\$curve:]{.underline} Sebia speichert die Protein-Elektrophorese-Daten im hexadecimalen Format [@chenLightweightOpenSource2022]. <br>  Je String 1200 Stellen, also 300 Hexadezimalwerte. Nach Konversion ins Dezimal-System sind das also 300 Datenpunkte pro Chromatogramm. 
+[\$curve:]{.underline} Sebia speichert die Protein-Elektrophorese-Daten im hexadecimalen Format [@chenLightweightOpenSource2022]. <br>  Je String 1200 Stellen, also 300 Hexadezimalwerte. Nach Konversion ins Dezimal-System sind das also 300 Datenpunkte pro Chromatogramm.  
+Bei zwei Chromatogrammen fallen die Zeichenketten auf, da sie mit "X" beginnen, Es ist fraglich ob diese tatsächlich hexadecimal sind. Diese werden hier untersucht:
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+hex.string <- EPcsv$curve[EPcsv$ID == 2701]
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-#| label: fig-chromatogram-plot
-#| fig-cap: "Chromatogramm einer Protein-Elektrophorese"
-
-hex.string <- EPcsv$curve[EPcsv$ID == 1691]
-
+# entfernen der "X" am Anfang
+hex.string <- gsub("X", "", hex.string)
 # Split the string into hexadecimal parts
 hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
 
@@ -100,15 +99,173 @@ hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(he
 decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
 
 # dataframe with hexadecimal and decimal values
-decimal.values <- as.data.frame(decimal.values)
-decimal.values$hex.parts <- hex.parts
-decimal.values$ID <- seq_len( nrow(decimal.values) ) |> rev()
+dat <- as.data.frame(decimal.values)
+dat$decimal.values <- rev(dat$decimal.values)
+#dat$hex.parts <- hex.parts
+dat$ID <- seq_len( nrow(dat) )
 
 # delete rows with decimal values >10000
-decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
+# dat <- dat[dat$decimal.values < 10000,]
 
-plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "")
+plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "")
 ```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# Vorbereitung der Daten für beide IDs
+fun.prep.EP.data <- function(id) {
+  hex.string <- EPcsv$curve[EPcsv$ID == id]
+  
+  # Entfernen der "X" am Anfang
+  hex.string <- gsub("X", "", hex.string)
+  
+  # Aufteilen des Strings in 4-stellige Hexadezimalwerte
+  hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
+  
+  # Konvertierung von Hexadezimal in Dezimal
+  decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
+  
+  # Erstellen eines Dataframes
+  dat <- data.frame(
+    ID = seq_len(length(decimal.values)),
+    decimal.values = rev(decimal.values)
+  )
+  
+  return(dat)
+}
+
+
+
+
+# Daten für ID 2700 und 2701 vorbereiten
+dat_2700 <- fun.prep.EP.data(2700)
+dat_2701 <- fun.prep.EP.data(2701)
+
+# Plots nebeneinander darstellen
+par(mfrow = c(1, 2)) # Layout für 2 Plots nebeneinander
+
+# Plot für ID 2700
+plot(decimal.values ~ ID, data = dat_2700, type = "l", col = "blue", lwd = 2, 
+     xlab = "ID", ylab = "Signal", main = "ID 2700")
+
+# Plot für ID 2701
+plot(decimal.values ~ ID, data = dat_2701, type = "l", col = "blue", lwd = 2, 
+     xlab = "ID", ylab = "Signal", main = "ID 2701")
+
+# Layout zurücksetzen
+par(mfrow = c(1, 1))
+
+
+```
+Wie weiter unten zu erkennen sein wird, fallen beide Chromatogramme durch fast 20 fach höhere Signale auf, ausserdem fehlen die Sebia-typischen Marker Peaks (s.u.). Es ist nicht ganz klar, mit welchen Einstellungen am Gerät diese Chromatogramme aufgezeichnet wurden. Daher sollten sie bei der "Data Preparation" nicht berücksichtigt werden.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-raw-chromatogram-plot
+#| fig-cap: "Rohdaten einer Protein-Elektrophorese"
+
+dat <- fun.prep.EP.data(2)
+
+plot(decimal.values ~ ID, data = dat, type = "n", xlab = "ID", ylab = "signal", main = "")
+points(dat$ID, dat$decimal.values, 
+       col = ifelse(dat$decimal.values > 10000, "red", "blue"), 
+       pch = 16)
+```
+Im Sebia Manual wird beschrieben, dass Markerpeaks an definierten Punkten eingesetzt werden um die verschiedenen Chromatogramm-Bereiche voneinander abzugrenzen. Diese sind in der oberen Abbildung als rote "Aussreisser" Punkte zu sehen.
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+
+#| label: fig-raw-chromatogram-plot
+#| fig-cap: "Rohdaten einer pathologischen Protein-Elektrophorese mit Peakbezeichnungen"
+#| 
+#library(pracma)
+
+# Daten für ID 1675 vorbereiten
+dat <- fun.prep.EP.data(1675)
+
+# Find peaks
+peaks <- findpeaks(dat$decimal.values, npeaks = 15, nups = 1, ndowns = 0, minpeakheight = 80)
+
+# Plot
+plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = " " )
+points(dat$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
+abline(v = dat$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks
+abline(v = dat$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks
+abline(v = dat$ID[160], col = "orange", lty = 2)
+text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, -1000, 1, -1000, 200, -1000, 200, -1000, 1, -1000, 1, -1000 ), labels = c("Albumin", "M", "alpha 1", "M", "alpha 2", "M", "beta 1", "M", "beta 2", "M",  "gamma", "M"),
+     pos = c(2, 2, 3, 2, 3, 2, 3, 2, 3, 2, 3, 2), offset = 0.5  , col = "darkgreen")
+
+
+
+
+
+```
+
+Diese artifiziellen Marker Peaks sind keine echten Messsignale, daher werden diese bei der Data Preparation nicht berücksichtigt. 
+Sie erschweren die Erkennung der tatsächlichen Peaks und der weiteren Features. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-diverse-chromatogram-plot
+#| fig-cap: "Verschieden EP-Elektrophorese-Chromatogramme"
+
+
+fun.prep.EP.plot <- function(id) {
+  # Daten vorbereiten
+  dat <- fun.prep.EP.data(id)
+  
+  # Entfernen von Werten > 10000
+  dat <- dat[dat$decimal.values < 10000,]
+  
+  # Peaks finden
+  #peaks <- findpeaks(dat$decimal.values, npeaks = 15, nups = 1, ndowns = 0, minpeakheight = 80)
+  
+  # Plot erstellen
+  plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2,
+       xlab = "ID", ylab = "Signal", main = paste("ID:", id))
+  points(dat$ID[peaks[,2]], peaks[,1], col = "red", pch = 20) # Peaks markieren
+}
+
+# Liste der IDs
+chromatogram_ids <- c(1691, 24965, 3697, 9075, 22310, 15055, 4662, 9173, 
+                      2705, 2334, 7498, 8951, 3849, 3479, 5066, 29056)
+
+# Alle Daten in einem Dataframe kombinieren, einschließlich Peaks
+all_data <- do.call(rbind, lapply(chromatogram_ids, function(id) {
+  dat <- fun.prep.EP.data(id)
+  dat <- dat[dat$decimal.values < 10000,]
+  
+  # Peaks finden
+  peaks <- findpeaks(dat$decimal.values, npeaks = 15, nups = 1, ndowns = 0, minpeakheight = 80)
+  
+  # Speichern der Peak-Informationen
+  if (!is.null(peaks)) {
+    peak_data <- data.frame(
+      ID = dat$ID[peaks[, 2]],
+      decimal.values = peaks[, 1],
+      ID_label = paste("ID:", id),
+      is_peak = TRUE
+    )
+    dat$ID_label <- paste("ID:", id)
+    dat <- merge(dat, peak_data, by = c("ID", "decimal.values", "ID_label"), all.x = TRUE)
+    dat$is_peak[is.na(dat$is_peak)] <- FALSE
+  } else {
+    dat$ID_label <- paste("ID:", id)
+    dat$is_peak <- FALSE
+  }
+  
+  return(dat)
+}))
+
+# Plot mit Facetten und Peak-Markierung
+ggplot(all_data, aes(x = ID, y = decimal.values)) +
+  geom_line(color = "blue") +
+  geom_point(data = subset(all_data, is_peak), color = "red", size = 2) +
+  facet_wrap(~ ID_label, scales = "free") +
+  theme_minimal() +
+  labs(x = " ", y = "Signal", title = " ")
+
+```
+
+Wie aus der Übersicht der Chromatogramme ersichtlich wird, erscheinen die Peaks vorallem im beta- und gamma-Bereich an unterschiedlichen Positionen. Auch variiert die Anzahl der Peaks je Chromatogramm. Meine ursprüngliche Idee die Peaks als Features zu verwenden, wird daher nicht funktionieren. Wenn für jeden Messpunkt die Signal-Höhe, Steigung, zweite Ableitung und Fläche unter der Kurve berechnet werden, dann stehen genügend Features zur Verfügung.
+
 <br>
 
 
@@ -747,7 +904,7 @@ other.count <- EPcsv1 |>
 #  
 ```
 
-```{r , echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
+```{r , echo=TRUE, eval=FALSE,message=FALSE, warning=FALSE}
 # print(head(EPcsv, 10))
 # print(glimpse(EPcsv))
 ft <-  flextable(my_skim(EPcsv1))
@@ -756,27 +913,27 @@ ft
 
 [Insgesamt sind `r sum(nrow(na.omit(EPcsv1)))` Immunfixationen befundet worden. Davon sind `r negative.iFix.count` als negativ (unauffällig, oder M-Protein nicht mehr nachweisbar) befundet worden. In `r positive.iFix.count` Fällen wurde ein M-Protein oder eine Zonierung gefunden. `r other.count` Immunfixationen wurden als nicht eindeutig beurteilt.]{style="color:#00008B;font-weight:bold"}
 
-### Chromatogramm Daten
+<!-- ### Chromatogramm Daten -->
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-hex.string <- EPcsv$curve[EPcsv$ID == 1691]
+<!-- ```{r, echo=FALSE, message=FALSE, warning=FALSE} -->
+<!-- hex.string <- EPcsv$curve[EPcsv$ID == 1691] -->
 
-# Split the string into hexadecimal parts
-hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
+<!-- # Split the string into hexadecimal parts -->
+<!-- hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4)) -->
 
-# Convert each hex part to decimal
-decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
+<!-- # Convert each hex part to decimal -->
+<!-- decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x))) -->
 
-# dataframe with hexadecimal and decimal values
-decimal.values <- as.data.frame(decimal.values)
-decimal.values$hex.parts <- hex.parts
-decimal.values$ID <- seq_len( nrow(decimal.values) ) |> rev()
+<!-- # dataframe with hexadecimal and decimal values -->
+<!-- decimal.values <- as.data.frame(decimal.values) -->
+<!-- decimal.values$hex.parts <- hex.parts -->
+<!-- decimal.values$ID <- seq_len( nrow(decimal.values) ) |> rev() -->
 
-# delete rows with decimal values >10000
-decimal.values <- decimal.values[decimal.values$decimal.values < 10000,]
+<!-- # delete rows with decimal values >10000 -->
+<!-- decimal.values <- decimal.values[decimal.values$decimal.values < 10000,] -->
 
-plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "protein electrophoresis chromatogram")
-```
+<!-- plot(decimal.values ~ ID, data = decimal.values, type = "p", pch = 20, col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "protein electrophoresis chromatogram") -->
+<!-- ``` -->
 
 
 ## Überprüfen der Datenqualität {.justify}
