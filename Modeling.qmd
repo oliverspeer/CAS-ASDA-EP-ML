@@ -17,8 +17,6 @@ cat("Version:\n",format(file.info("Modeling.qmd")$mtime,"%d. %B %Y"))
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 source("StartUp.R")
 StartUpRoutine()
-
-# close connection con
 dbDisconnect(con)
 
 ```
@@ -195,7 +193,7 @@ saveRDS(regular.res, "regular_resRF.rds")
 ```
 
 
-```{r figfinetuning, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r figfinetuning, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 regular.res <- readRDS("regular_resRF.rds")
 regular.res |>
   collect_metrics() |>
