@@ -32,7 +32,8 @@ StartUpRoutine <- function() {
                 "fs",
                 "units",
                 "scales",
-                "skimr"
+                "skimr",
+                "pracma"
                 )
   
   # Loop to check if libraries are installed and install them if not and load them
