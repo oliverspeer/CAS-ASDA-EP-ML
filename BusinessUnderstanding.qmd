@@ -269,21 +269,23 @@ Chromatogramm-Daten und Patienten-Daten sind über die eineindeutige Tagesnummer
 ```{r project gantt, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
 library(plan)
 pplan <- new("gantt")
-pplan <- ganttAddTask(pplan, "Business Understanding", "2024-10-06", "2024-10-19", done = 60)
-pplan <- ganttAddTask(pplan, "Data Understanding", "2024-10-06", "2024-10-30", done = 80)
+pplan <- ganttAddTask(pplan, "Business Understanding", "2024-10-06", "2024-10-19", done = 100)
+pplan <- ganttAddTask(pplan, "Data Understanding", "2024-10-06", "2024-12-27", done = 100)
 
 pplan <- ganttAddTask(pplan, "Data Preparation")
-pplan <- ganttAddTask(pplan, "transpose hexa into dec", "2024-11-30", "2024-12-01")
-pplan <- ganttAddTask(pplan, "prepare new chrom.data (peak, area...)", "2024-11-30", "2024-12-01")
-pplan <- ganttAddTask(pplan, "prepare training and validation data sets", "2024-12-07", "2024-12-08")
-pplan <- ganttAddTask(pplan, "prep datasample for automation testing", "2024-12-07", "2024-12-08", done = 0)
-pplan <- ganttAddTask(pplan, "Fill data into SQLite db", "2024-12-14", "2024-12-15", done = 0)
+pplan <- ganttAddTask(pplan, "transpose hexa into dec", "2024-11-30", "2024-12-30", done = 100)
+pplan <- ganttAddTask(pplan, "prepare new chrom.data (peak, area...)", "2024-11-29", "2024-12-30", done = 100)
+pplan <- ganttAddTask(pplan, "prepare text-strings for classification", "2024-12-21", "2024-12-28", done = 100)
+pplan <- ganttAddTask(pplan, "clustering of strings", "2024-12-27", "2024-12-28", done = 100)
+pplan <- ganttAddTask(pplan, "prepare training and validation data sets", "2024-12-30", "2024-12-31", done = 100)
+pplan <- ganttAddTask(pplan, "prep datasample for automation testing", "2024-12-29", "2024-12-30", done = 100)
+pplan <- ganttAddTask(pplan, "Fill data into SQLite db", "2025-01-14", "2025-01-15", done = 0)
 
 
 pplan <- ganttAddTask(pplan, "Modeling")
-pplan <- ganttAddTask(pplan, "random forrest", "2024-12-20", "2024-12-26", done = 0)
-pplan <- ganttAddTask(pplan, "PCA", "2024-12-27", "2024-12-28", done = 0)
-pplan <- ganttAddTask(pplan, "logistic Regression", "2024-12-29", "2024-12-31", done = 0)
+pplan <- ganttAddTask(pplan, "random forrest", "2024-12-31", "2025-01-03", done = 80)
+#pplan <- ganttAddTask(pplan, "PCA", "2024-12-27", "2024-12-28", done = 0)
+pplan <- ganttAddTask(pplan, "logistic Regression", "2025-01-06", "2025-01-12", done = 0)
 
 
 pplan <- ganttAddTask(pplan, "Evaluation", "2025-01-03", "2025-01-15", done = 0)
@@ -297,7 +299,7 @@ font <- ifelse(is.na(pplan[["start"]]), 2, 1)
 
 
 plot(pplan, ylabel=list(font=font),
-     event.time=c("2024-10-20", "2025-01-30"), event.label=c("ZHAW: Konzept Abgabe", "Leistungsnachweis"))
+     event.time=c("2024-10-20", "2025-01-14"), event.label=c("ZHAW: Konzept Abgabe", "Leistungsnachweis"))
 # par(lend="square") # default is round
 legend("topright", pch=22, pt.cex=2, pt.bg=gray(c(0.3, 0.9)),
        border="black", 
