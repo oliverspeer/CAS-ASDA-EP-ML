@@ -39,6 +39,10 @@ daher dagegen entschieden mit peakdetection zu arbieten, sonden von allen Messpu
 
 
 
+** Fragen **
+- Normalisierung der Features?
+- Wie bekomme ich heraus wie gut ein Modell für eine Klasse ist?
+- Noch einfacher: "unauffällig" und "andere"
 
 
 
