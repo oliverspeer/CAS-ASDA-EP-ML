@@ -339,11 +339,129 @@ In den Befundtexten kommt insgesamt das Wort <br>
 Auf den ersten Blick scheinen in den Daten `r sum(normal.count)` unauffällige Befunde vorzukommen,
 bei insgesamt `r nrow(EPcsv)-sum(entf.count)` befundeten Chromatogrammen. Allerdings, wie sich unten zeigt, sind diese Befundtexte nicht standardisiert und sind für selbe Aussagen relativ variabel formuliert und enthalten Tippfehler. Sollten dieser Befundetexte zum Vergelich herangezogen werden, müssten sie genauer analysiert und klassifiziert werden.
 
+##### 06.01.2025 Bereinigung und Tokenisierung der EP-Befundtexte
+Das erste RF-Model, das auf den iFix-Befundtexten trainiert wurde, hat eine ROC_AUC von 0.83. 
+Dies Klassifizierung der iFix-Befunde ist vermutlich nicht ganz sauber, es gibt Befunde, welche nicht korrekt klassifiziert wurden. Daher versuche ich in einer zweiten Runde sowohl die iFix-Befunde als auch die EP-Befunde besser zu bereiningen und zu klassifizieren.  
+Nach Kleinschreibung, Entfernen von Satzzeichen, sowie Tokenisierung der Befundtexte ergibt sich folgende Häufigkeitsverteilung der Wörter in den iFix-Befundtexten:
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Tokenisierung der EP-Befundtexte
+library(tidytext)
+library(stringr)
+library(stopwords)
+monate <- c(
+  "Januar", "Jan",
+  "Februar", "Feb",
+  "März", "März",
+  "April", "Apr",
+  "Mai", "Mai",
+  "Juni", "Jun",
+  "Juli", "Jul",
+  "August", "Aug",
+  "September", "Sept",
+  "Oktober", "Okt",
+  "November", "Nov",
+  "Dezember", "Dez",
+  "Monat", "Monaten", "monaten"
+) |> 
+  paste(collapse = "|")
+
+# stopwords anpassen, da in den tokens "nicht" enthalten bleiben soll
+stopwords.olli <- setdiff(stopwords("de", "stopwords-iso"), c("nicht", 
+                                                              "keine", 
+                                                              "kein", 
+                                                              "keinem", 
+                                                              "keinen", 
+                                                              "keiner", 
+                                                              "keines", 
+                                                              "ohne"))
+stopwords.olli.col <- paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
+
+EPcsv1 <- EPcsv |>
+  mutate(
+    Bef.EP_cleaned = gsub("\\([A-Za-zäöüÄÖÜ]+(/[A-Za-zäöüÄÖÜ]+)?\\)", "", Bef.EP),
+    Bef.EP_cleaned = gsub("[0-9]+", "", Bef.EP_cleaned),
+    #Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, monate, ""),
+    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "[[:punct:]]", ""),
+    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "),
+    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "-", ""),
+    Bef.EP_cleaned = str_squish(Bef.EP_cleaned)
+  ) |> 
+  unnest_tokens(Bef.EP_cleaned, Bef.EP_cleaned, token = "words", to_lower =TRUE, drop = FALSE) #|> 
+  #filter(!Bef.EP_cleaned %in% stopwords.olli)
+
+Bef.EP.freq <- EPcsv1 |> 
+  count(Bef.EP_cleaned, sort = TRUE) |> 
+  arrange(Bef.EP_cleaned)
+
+ft1 <- Bef.EP.freq[1211:1300,] |> 
+  arrange(desc(n)) |>
+  #head(20) |> 
+  flextable()
+
+ft2 <- Bef.EP.freq[1651:1740,] |> 
+  arrange(desc(n)) |>
+  #head(20) |> 
+  flextable()
+
+ft3 <- Bef.EP.freq[1931:2020,] |> 
+  arrange(desc(n)) |>
+  #head(20) |> 
+  flextable()
+
+ft4 <- Bef.EP.freq[611:700,] |> 
+  arrange(desc(n)) |>
+  #head(20) |> 
+  flextable()
+
+# HTML-Ausgabe erstellen
+html_output <- htmltools::browsable(
+  htmltools::tagList(
+    htmltools::tags$div(
+      style = "display: flex; justify-content: space-between;",
+      htmltools::tags$div(
+        flextable::htmltools_value(ft1),
+        style = "margin-right: 10px;"
+      ),
+      htmltools::tags$div(
+        flextable::htmltools_value(ft2),
+        style = "margin-right: 10px;"
+      ),      
+      htmltools::tags$div(
+        flextable::htmltools_value(ft3)
+      ),
+      htmltools::tags$div(
+        flextable::htmltools_value(ft4)
+      )      
+    )
+  )
+)
+
+# HTML-Ausgabe anzeigen
+#print(html_output, browse = TRUE)
+html_output
+```
+
+##### Varianten des Wortes "unauffällig"
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Berechnung der Levenshtein-Distanzen
+
+Bef.EP.freq |> 
+  mutate(Distanz = stringdist("unauffällig", Bef.EP_cleaned, method = "lv")) |> 
+  filter(Distanz < 5)|>
+  arrange(desc(n)) |>
+  flextable() 
+
+```
+#### 06.01.2025 Zusammenfassung
+[Auf den ersten Blick erscheinen die Befundtexte der EP-Chromatogramme ähnlich zusammengesetzt wie die Bfundtexte der Immunfixationen. Auch was Varianten und Tippfehler anbelangt. Hier sollte noch untersucht werden, in wie weit vorallem Befunde mit "unauffällig" zwischen EP- und iFix-Befundtexten übereinstimmen.]{style="color:#0000B8;font-weight:bold"} 
+
 #### Immunfixation Befunde
 Wie in [@elfertExpertlevelDetectionMproteins2024] beschrieben, brauchen wir für die Klassifizierung der EP-Chromatogramme in den Trainingsdaten eine "ground truth" welche durch eine andere Methode erstellt werden sollte. In unserem Setting sind wir auf die Befundtexte der Immunfixationen (iFix) angewiesen.
 Daher ist es im folgenden wichtig diese gut zu untersuchen.
 
-##### Bereinigung und Tokenisierung der Befundtexte
+##### Bereinigung und Tokenisierung der Immunfixations-Befundtexte
 Nach Kleinschreibung, Entfernen von Satzzeichen, sowie Tokenisierung der Befundtexte ergibt sich folgende Häufigkeitsverteilung der Wörter in den iFix-Befundtexten:
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
@@ -760,7 +878,7 @@ EPcsv2 |>
 <!-- #   unnest_tokens(Bef.EP_cleaned, Bef.EP_cleaned, token = "words", to_lower = TRUE, drop = FALSE)  -->
 <!-- # ``` -->
 
-#### Zusammenfassung der Befundtexte Analysen {.justify}
+#### Zusammenfassung der iFix-Befundtext-Analysen {.justify}
 
 ```{r, echo=T, message=FALSE, warning=FALSE}
 library(stringr)
@@ -912,6 +1030,110 @@ ft
 ```
 
 [Insgesamt sind `r sum(nrow(na.omit(EPcsv1)))` Immunfixationen befundet worden. Davon sind `r negative.iFix.count` als negativ (unauffällig, oder M-Protein nicht mehr nachweisbar) befundet worden. In `r positive.iFix.count` Fällen wurde ein M-Protein oder eine Zonierung gefunden. `r other.count` Immunfixationen wurden als nicht eindeutig beurteilt.]{style="color:#00008B;font-weight:bold"}
+
+#### 06.01.2025 Vergleich der EP- und iFix-Befundtexte {.justify}
+Das wichtiste Wort um normale von auffälligen EP-Chromatogrammen durch die BEfundtexte zu unterscheiden ercheint das Wort "unauffällig" zu sein. Hier wird vergleichen wie oft dieses Wort in den EP- und iFix-Befunden vorkommt und wie gross die Schnittmenge ist.
+
+Anzahl der "unauffällig" in den EP- und iFix-Befunden
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Anzahl der "unauffällig" in den EP- und iFix-Befunden
+library(dplyr)
+library(flextable)
+
+EPcsv |> 
+  summarize(
+    Möglichkeit = c(
+      "Nur in Bef.EP",
+      "Nur in Bef.ImFix",
+      "In beiden Spalten"
+    ),
+    Anzahl = c(
+      sum(grepl("unauffällig", Bef.EP, ignore.case = TRUE) & 
+            !grepl("unauffällig", Bef.ImFix, ignore.case = TRUE)),
+      sum(!grepl("unauffällig", Bef.EP, ignore.case = TRUE) & 
+            grepl("unauffällig", Bef.ImFix, ignore.case = TRUE)),
+      sum(grepl("unauffällig", Bef.EP, ignore.case = TRUE) & 
+            grepl("unauffällig", Bef.ImFix, ignore.case = TRUE))
+    )
+  ) |> 
+  flextable()
+```
+
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(flextable)
+
+# Für jede der drei Kategorien 50 Zeilen auswählen
+#result <- bind_rows(
+ft1 <-   EPcsv |>
+    filter(grepl("unauffällig", Bef.EP, ignore.case = TRUE) & 
+             !grepl("unauffällig", Bef.ImFix, ignore.case = TRUE)) |>
+    select(ID, Bef.EP, Bef.ImFix) |>
+    head(50) |>
+    mutate(Kategorie = "Nur in Bef.EP") |> #,
+    flextable()
+  
+ft2 <-   EPcsv |>
+    filter(!grepl("unauffällig", Bef.EP, ignore.case = TRUE) & 
+             grepl("unauffällig", Bef.ImFix, ignore.case = TRUE)) |>
+    select(ID, Bef.EP, Bef.ImFix) |>
+    head(50) |>
+    mutate(Kategorie = "Nur in Bef.ImFix") |> #,
+    flextable()
+  
+ft3 <-   EPcsv |>
+    filter(grepl("unauffällig", Bef.EP, ignore.case = TRUE) & 
+             grepl("unauffällig", Bef.ImFix, ignore.case = TRUE)) |>
+    select(ID, Bef.EP, Bef.ImFix) |>
+    head(50) |>
+    mutate(Kategorie = "In beiden Spalten") |> #,     
+    flextable()
+
+ft4 <-   EPcsv |>
+    filter(grepl("unauffällig", Bef.EP, ignore.case = TRUE) & 
+             grepl("M-Protein", Bef.ImFix, ignore.case = TRUE)) |>
+    select(ID, Bef.EP, Bef.ImFix) |>
+    head(50) |>
+    mutate(Kategorie = "Unauffällig + MProt") |> #,     
+    flextable()
+#)
+
+# Flextable erstellen
+#flextable(result[, c("Kategorie", "Bef.EP", "Bef.ImFix")])
+
+# HTML-Ausgabe erstellen
+html_output <- htmltools::browsable(
+  htmltools::tagList(
+    htmltools::tags$div(
+      style = "display: flex; justify-content: space-between;",
+      htmltools::tags$div(
+        flextable::htmltools_value(ft1),
+        style = "margin-right: 10px;"
+      ),
+      htmltools::tags$div(
+        flextable::htmltools_value(ft2),
+        style = "margin-right: 10px;"
+      ),      
+      htmltools::tags$div(
+        flextable::htmltools_value(ft3)
+      )
+    ),      
+      htmltools::tags$div(
+        flextable::htmltools_value(ft4)
+      )
+  )
+)
+
+# HTML-Ausgabe anzeigen
+#print(html_output, browse = TRUE)
+html_output
+
+```
+
+
+#### 06.01.2025 Zusammenfassung {.justify}
+Die EP-Befunde mit "unauffällig" scheinen konsistenter und einheitlicher als die iFix-Befundberichte mit "unauffällig" zu sein. Im zweiten random forest Model werde ich die Klassifizierung "unauffällig" und "auffällig" auf Basis der EP-Befunde durchführen.
 
 <!-- ### Chromatogramm Daten -->
 
