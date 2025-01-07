@@ -92,7 +92,7 @@ tune.spec <- rand_forest(
   min_n = tune()
 ) |> 
   set_mode("classification")  |> 
-  set_engine("ranger")
+  set_engine("ranger", num.threads = 2)
 
 tune.spec
 ```
@@ -239,6 +239,227 @@ saveRDS(final.rf.imp, "final_rf_imp.rds")
 final.rf.imp <- readRDS("final_rf_imp.rds")
 library(vip)
 vip(final.rf.imp, geom = "point", num_features = 40)
+```
+
+### Random Forest II {.justify}
+Mit den Erkentnissen aus dem ersten Random Forest Modell, wird ein zweites Modell erstellt. Dieses basiert auf der Klassifizierung in "unauffällig" und "suspicous" auf Grundlage der EP Befunde. Ausserdem werden - nach der Abbildung oben - als Features nur die 2ten Ableitungen verwendet.
+
+#### Erstes Tuning: recipe, tuning spec, workflow, 10x resempling {.justify}
+```{r random forest II recipe, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+
+# Daten einlesen
+EPBtraining <- readRDS("EPBtraining.rds")
+#EPvalidation <- readRDS("EPvalidation.rds")
+
+# recipe building
+EPB.rec <- 
+  recipe(EPKlassifizierung ~ ., data = EPBtraining) |>
+  update_role(ID, new_role = "ID") 
+
+EPB.rec
+```
+
+
+
+```{r random forest II tuning spec, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# prepare data
+EPB.prep <- prep(EPB.rec)
+juiced <- juice(EPB.prep)
+
+# tune setting
+tune.spec <- rand_forest(
+  mtry = tune(),
+  trees = 1000,
+  min_n = tune()
+) |> 
+  set_mode("classification")  |> 
+  set_engine("ranger", num.threads = 2)
+
+tune.spec
+```
+
+
+```{r random forest II tuning wf, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# workflow
+tune.wf <- workflow() |>
+  add_recipe(EPB.rec) |>
+  add_model(tune.spec)
+
+tune.wf
+```
+
+
+
+```{r random forest II tuning folds, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPBtraining, v = 5)
+EPfolds
+```
+
+
+```{r random forest II tuning, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# doParallel::registerDoParallel()
+library(future)
+plan(multisession, workers = 5)
+
+# tuning
+set.seed(8173)
+tune.EPB.res <- tune_grid(parallel_over = "resamples",
+  tune.wf,
+  resamples = EPfolds,
+  grid = 10
+)
+
+
+
+future::plan("sequential")
+
+saveRDS(tune.EPB.res, "tune_EPB_resRF.rds")
+```
+
+#### Auswertung des EPB Tuning {.unnumbered}
+```{r figtuningRFII, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+
+tune.EPB.res <- readRDS("tune_EPB_resRF.rds")
+
+tune.EPB.res |>
+  collect_metrics() |>
+  filter(.metric == "roc_auc") |>
+  select(mean, min_n, mtry) |>
+  pivot_longer(min_n:mtry,
+    values_to = "value",
+    names_to = "parameter"
+  ) |>
+  ggplot(aes(value, mean, color = parameter)) +
+  geom_point(show.legend = FALSE) +
+  facet_wrap(~parameter, scales = "free_x") +
+  labs(x = NULL, y = "AUC")
+
+``` 
+#### Fine-Tuning {.unnumbered}
+```{r finetuningII grid, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(tidymodels)
+EPBtraining <- readRDS("EPBtraining.rds")
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPBtraining, v = 5)
+EPfolds
+
+rf.grid <- grid_regular(
+  mtry(range = c(1, 12)),
+  min_n(range = c(1, 9)),
+  levels = 4
+)
+
+rf.grid
+```
+# Tune Spezifikationen und Workflow 
+
+```{r specs finetuning II, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# tune setting
+tune.spec <- rand_forest(
+  mtry = tune(),
+  trees = 1000,
+  min_n = tune()
+) |> 
+  set_mode("classification")  |> 
+  set_engine("ranger", num.threads = 2)
+
+tune.spec
+
+# workflow
+tune.wf <- workflow() |>
+  add_recipe(EPB.rec) |>
+  add_model(tune.spec)
+
+tune.wf
+
+```
+
+
+```{r finetuning, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(future)
+
+plan(multisession, workers = 5)
+
+set.seed(8173)
+regular.EPB.res <- tune_grid(
+  tune.wf,
+  resamples = EPfolds,
+  grid = rf.grid,
+  parallel_over = "resamples",
+  control = control_grid(verbose = TRUE)
+)
+
+plan(sequential)
+
+saveRDS(regular.EPB.res, "regular_EPB_resRF.rds")
+
+```
+
+
+```{r figfinetuning II1, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+regular.res <- readRDS("regular_EPB_resRF1.rds")
+regular.res |>
+  collect_metrics() |>
+  filter(.metric == "roc_auc") |>
+  mutate(min_n = factor(min_n)) |>
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "AUC")
+```
+
+```{r figfinetuning II2, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+regular.res <- readRDS("regular_EPB_resRF.rds")
+regular.res |>
+  collect_metrics() |>
+  filter(.metric == "roc_auc") |>
+  mutate(min_n = factor(min_n)) |>
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "AUC")
+```
+
+#### Auswahl des besten Modells {.unnumbered}
+```{r bestmodelRF, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+best.auc <- select_best(regular.res, metric = "roc_auc")
+best.auc
+
+final.rf <- finalize_model(tune.spec, best.auc)
+
+saveRDS(final.rf, "final_EPB_rf.rds")
+
+final.rf
+```
+
+#### Die wichtigsten Variablen {.unnumbered}
+```{r important variables, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# variable importance
+library(vip)
+plan(multisession, workers = 5)
+
+final.rf.imp <- final.rf |> 
+  set_engine("ranger", importance = "permutation", num.threads = 2) |>
+  fit(EPKlassifizierung ~ ., 
+      data = juice(EPB.prep) |> select(-ID)
+      )#|>
+
+plan(sequential)
+
+saveRDS(final.rf.imp, "final_EPB_rf_imp.rds")
+```
+
+
+```{r fig important variables, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-important-variables
+#| fig.cap: Wichtigste Variablen
+#| 
+final.rf.imp <- readRDS("final_EPB_rf_imp.rds")
+library(vip)
+vip(final.rf.imp, geom = "point", num_features = 50)
 ```
 
 <!-- ```{r random forest, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
