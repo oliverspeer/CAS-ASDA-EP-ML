@@ -1548,3 +1548,151 @@ EP.split
 
 
 ```
+
+## 06.01.2025 Bereinigung der EP-Befunde und Klassifizierung {.justify}
+
+#### Korrektur von *"unauffällig"*
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+# Tokenisierung der EP-Befundtexte
+library(tidytext)
+library(stringr)
+library(stopwords)
+monate <- c(
+  "Januar", "Jan",
+  "Februar", "Feb",
+  "März", "März",
+  "April", "Apr",
+  "Mai", "Mai",
+  "Juni", "Jun",
+  "Juli", "Jul",
+  "August", "Aug",
+  "September", "Sept",
+  "Oktober", "Okt",
+  "November", "Nov",
+  "Dezember", "Dez",
+  "Monat", "Monaten", "monaten"
+) |> 
+  paste(collapse = "|")
+
+# stopwords anpassen, da in den tokens "nicht" enthalten bleiben soll
+stopwords.olli <- setdiff(stopwords("de", "stopwords-iso"), c("nicht", 
+                                                              "keine", 
+                                                              "kein", 
+                                                              "keinem", 
+                                                              "keinen", 
+                                                              "keiner", 
+                                                              "keines", 
+                                                              "ohne"))
+stopwords.olli.col <- paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
+
+Bef.EP.freq <- EPcsv |>
+  mutate(
+    Bef.EP_cleaned = gsub("\\([A-Za-zäöüÄÖÜ]+(/[A-Za-zäöüÄÖÜ]+)?\\)", "", Bef.EP),
+    Bef.EP_cleaned = gsub("[0-9]+", "", Bef.EP_cleaned),
+    #Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, monate, ""),
+    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "[[:punct:]]", ""),
+    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "),
+    Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "-", ""),
+    Bef.EP_cleaned = str_squish(Bef.EP_cleaned)
+  ) |> 
+  unnest_tokens(Bef.EP_cleaned, Bef.EP_cleaned, token = "words", to_lower =TRUE, drop = FALSE) |> 
+  count(Bef.EP_cleaned, sort = TRUE) |> 
+  arrange(Bef.EP_cleaned)|> 
+  mutate(Distanz = stringdist("unauffällig", Bef.EP_cleaned, method = "lv")) |> 
+  filter(Distanz < 4) |> 
+  pull(Bef.EP_cleaned)
+
+EP.unauf <- paste0("\\b(", paste(Bef.EP.freq, collapse = "|"), ")\\b")
+
+
+
+```
+
+### Klassifizierung der EP-Befunde
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+dev.df1 <- readRDS("dev_df1.rds")
+
+
+# Klassifizierung der EP-Befunde
+dev.df1 <- dev.df1 |> 
+  mutate(
+    EPKlassifizierung = case_when(
+      grepl(EP.unauf, Bef.EP) ~ "unauffällig",
+      TRUE ~ "suspicous"
+    ) |> 
+    as.factor()
+  )
+
+
+```
+
+
+### 06.01.2025 EP-Befund-Klassifizierung: Auswahl der relevanten Features {.justify}
+In der vorliegenden Arbeit möchte ich, wenigstens in einem ersten Schritt auf ein Model zur Unterstützung der Gammopathie-Erkennung fokusieren. Diese werden vorallem durch aberante Peaks in den beta1-, beta2- und gamma-Fraktionen erkannt. 
+Daher wähle ich zunächste die Signalhöhen (EP.y), die zugehörigen Steigungen (m), die zweite Ableitung (fdd) und die Flächen unter den Peaks (AUC) in den zweiten Hälften der Chromatogramme - also Messpunkte 150 bis 300, als Features für die Modellierung aus.
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Auswahl der relevanten Features
+# Subset des DataFrames für die Modellierung
+dev.df1 <- readRDS("dev_df1.rds")
+dev.sub.EP <- dev.df1 |> 
+  select( ID, 
+          EPKlassifizierung, 
+          #EP.y150:EP.y300, 
+          #m150:m300, 
+          fdd150:fdd300, 
+          #AUC150:AUC300
+          )
+
+saveRDS(dev.sub.EP, "dev_sub_EP.rds")
+
+dev.sub.EP.mfdd <- dev.df1 |> 
+  select( ID, 
+          EPKlassifizierung, 
+          #EP.y150:EP.y300, 
+          m150:m300, 
+          fdd150:fdd300, 
+          #AUC150:AUC300
+          )
+
+saveRDS(dev.sub.EP.mfdd, "dev_sub_EP_mfdd.rds")
+
+```
+
+### 06.01.2025 Aufteilen der EPKlassifikations-Daten in Trainings-, Validierungs- und Testdaten {.justify}
+
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(tidymodels)
+
+
+# Aufteilen der Daten in 60% Trainings-, 20% Validierungs- und  20% Testdaten
+set.seed(8173)
+EPB.split <- dev.sub.EP |> 
+  initial_validation_split(prop = c(0.6, 0.2), strata = EPKlassifizierung)
+
+
+saveRDS(EPB.split, "EPB_split.rds")
+
+
+```
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+EPBtraining <- training(EPB.split)
+saveRDS(EPBtraining, "EPBtraining.rds")
+
+EPBvalidation <- validation(EPB.split)
+saveRDS(EPBvalidation, "EPBvalidation.rds")
+
+#EPtesting <- testing(EP.split)
+```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-EPsplit
+#| tbl-cap: Aufteilung der Daten in Trainings-, Validierungs- und Testdaten
+
+EPB.split <- readRDS("EPB_split.rds")
+EPB.split
+
+
+```
