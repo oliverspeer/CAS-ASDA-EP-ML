@@ -27,7 +27,7 @@ StartUpRoutine()
 
 
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 library(dagitty)
 dag <- dagitty('dag {
   age -> gammopathy
@@ -58,9 +58,11 @@ plot(dag)
 adjustmentSets(dag, exposure = "sex", outcome = "gammopathy")
 adjustmentSets(dag, exposure = "age", outcome = "gammopathy")
 ```
-Sollte ich ein gam oder glm modellieren, dann kann ich aus dem oberen DAG mitnehmen, dass ich für "Alter" und "Geschlecht" adjustieren sollte.
 
-[**Q: Aber wie wähle ich für ein random forest Modell die relevanten Variablen aus?**]{style="#00008B"}
+
+<!-- Sollte ich ein gam oder glm modellieren, dann kann ich aus dem oberen DAG mitnehmen, dass ich für "Alter" und "Geschlecht" adjustieren sollte. -->
+
+<!-- [**Q: Aber wie wähle ich für ein random forest Modell die relevanten Variablen aus?**]{style="#00008B"} -->
 
 
 
@@ -1552,38 +1554,10 @@ EP.split
 ## 06.01.2025 Bereinigung der EP-Befunde und Klassifizierung {.justify}
 
 #### Korrektur von *"unauffällig"*
-```{r, echo=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Tokenisierung der EP-Befundtexte
 library(tidytext)
 library(stringr)
-library(stopwords)
-monate <- c(
-  "Januar", "Jan",
-  "Februar", "Feb",
-  "März", "März",
-  "April", "Apr",
-  "Mai", "Mai",
-  "Juni", "Jun",
-  "Juli", "Jul",
-  "August", "Aug",
-  "September", "Sept",
-  "Oktober", "Okt",
-  "November", "Nov",
-  "Dezember", "Dez",
-  "Monat", "Monaten", "monaten"
-) |> 
-  paste(collapse = "|")
-
-# stopwords anpassen, da in den tokens "nicht" enthalten bleiben soll
-stopwords.olli <- setdiff(stopwords("de", "stopwords-iso"), c("nicht", 
-                                                              "keine", 
-                                                              "kein", 
-                                                              "keinem", 
-                                                              "keinen", 
-                                                              "keiner", 
-                                                              "keines", 
-                                                              "ohne"))
-stopwords.olli.col <- paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
 
 Bef.EP.freq <- EPcsv |>
   mutate(
@@ -1609,7 +1583,7 @@ EP.unauf <- paste0("\\b(", paste(Bef.EP.freq, collapse = "|"), ")\\b")
 ```
 
 ### Klassifizierung der EP-Befunde
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=F, message=FALSE, warning=FALSE}
 dev.df1 <- readRDS("dev_df1.rds")
 
 
@@ -1617,15 +1591,29 @@ dev.df1 <- readRDS("dev_df1.rds")
 dev.df1 <- dev.df1 |> 
   mutate(
     EPKlassifizierung = case_when(
-      grepl(EP.unauf, Bef.EP) ~ "unauffällig",
+      grepl(EP.unauf, Bef.EP, ignore.case = T) ~ "unauffällig",
       TRUE ~ "suspicous"
     ) |> 
     as.factor()
   )
 
+saveRDS(dev.df1, "dev_df1.rds")
 
 ```
 
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-EPBclass_distribution
+#| tbl-cap: Verteilung der EP-Befund-Klassifizierungen
+
+dev.df1 <- readRDS("dev_df1.rds")
+
+ft <- dev.df1 |> 
+  count(EPKlassifizierung) |> 
+  flextable() |>
+  width(j = 1, width = 3.5)
+ft
+
+```
 
 ### 06.01.2025 EP-Befund-Klassifizierung: Auswahl der relevanten Features {.justify}
 In der vorliegenden Arbeit möchte ich, wenigstens in einem ersten Schritt auf ein Model zur Unterstützung der Gammopathie-Erkennung fokusieren. Diese werden vorallem durch aberante Peaks in den beta1-, beta2- und gamma-Fraktionen erkannt. 
@@ -1634,7 +1622,7 @@ Daher wähle ich zunächste die Signalhöhen (EP.y), die zugehörigen Steigungen
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Auswahl der relevanten Features
 # Subset des DataFrames für die Modellierung
-dev.df1 <- readRDS("dev_df1.rds")
+# dev.df1 <- readRDS("dev_df1.rds")
 dev.sub.EP <- dev.df1 |> 
   select( ID, 
           EPKlassifizierung, 
@@ -1688,7 +1676,7 @@ saveRDS(EPBvalidation, "EPBvalidation.rds")
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: tbl-EPsplit
+#| label: tbl-EPBsplit
 #| tbl-cap: Aufteilung der Daten in Trainings-, Validierungs- und Testdaten
 
 EPB.split <- readRDS("EPB_split.rds")
