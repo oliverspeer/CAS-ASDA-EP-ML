@@ -107,7 +107,7 @@ dat$ID <- seq_len( nrow(dat) )
 # delete rows with decimal values >10000
 # dat <- dat[dat$decimal.values < 10000,]
 
-plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "")
+# plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "")
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
@@ -926,101 +926,103 @@ vorb.count <- str_count(EPcsv$Bef.ImFix, regex(vorbef, ignore_case = T))
 [Die Auswertung von tri-Grams könnte evtl dabei helfen, diese Varianten zu unterscheiden.]{style="color:#00008B;font-weight:bold"}
 
 
-```{r, echo=T, message=FALSE, warning=FALSE}
-# Funktion zum Entfernen der Phrase
-# entferne_phrasen <- function(text) {
-#   # Entfernen der definierten Phrasen
-#   text <- str_remove_all(text, vorbef)
-#   return(text)
-# }
-# 
-# # Anwenden der Funktion auf den gesamten Vektor
-# EPcsv1 <- EPcsv |> 
-#   mutate(Bef.ImFix = sapply(Bef.ImFix, entferne_phrasen))
+<!-- ```{r, echo=T, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- # Funktion zum Entfernen der Phrase -->
+<!-- # entferne_phrasen <- function(text) { -->
+<!-- #   # Entfernen der definierten Phrasen -->
+<!-- #   text <- str_remove_all(text, vorbef) -->
+<!-- #   return(text) -->
+<!-- # } -->
+<!-- #  -->
+<!-- # # Anwenden der Funktion auf den gesamten Vektor -->
+<!-- # EPcsv1 <- EPcsv |>  -->
+<!-- #   mutate(Bef.ImFix = sapply(Bef.ImFix, entferne_phrasen)) -->
 
-# EPcsv1$Bef.ImFix <- sapply(EPcsv$Bef.ImFix, entferne_phrasen)
+<!-- # EPcsv1$Bef.ImFix <- sapply(EPcsv$Bef.ImFix, entferne_phrasen) -->
 
 
-EPcsv1 <- EPcsv |>
-  mutate(
-    pos.string.iFix = case_when(
-      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird suspicious NA
-      grepl("\\b(M-)?Protein(e|s|er|en)?\\b|\\b(mono)?klonal(e|es|er|en)?\\b|Bande|Zonierung|Zonen|M-Protein|Para\\w|Inhomogen\\w|Unregelmässig\\w|monolonal\\w|monnolonal\\w|Gradienten\\w|Gammopathie\\w|M-Komponente|monoklonlen|biklonal|M-Gradienten|klonalen|monoklonalen", Bef.ImFix, ignore.case = TRUE) ~ 1,
-      TRUE ~ 0
-    ),
-    neg.iFix = case_when(
-      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.iFix NA
-      grepl("unauffällig|unaufällig|unauffälllig|unaufffällig|unaufffälllig|unuaffällig|ünauffällig|unauffällg|unauffälig|unaufälig|negativ|unauffàllig|uanuffällig|uanauffällig", Bef.ImFix, ignore.case = TRUE) ~ 1,
-      TRUE ~ 0
-    ),
-    polyklon.string.iFix = case_when(
-      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
-      grepl("polyklon|Verstärkung|verstärkt|poliklon", Bef.ImFix, ignore.case = TRUE) ~ 1,
-      TRUE ~ 0
-    ),
-    neg.string.iFix = case_when(
-      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
-      grepl("nicht|kein\\w|ohne|kein", Bef.ImFix, ignore.case = TRUE) ~ 1,
-      TRUE ~ 0
-    ),
-    vorb.string.iFix = case_when(
-      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
-      grepl(vorbef, Bef.ImFix, ignore.case = TRUE) ~ 1,
-      TRUE ~ 0
-    ),
-    no.string.iFix = case_when(
-      is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA
-      grepl("folgt|entfernt|SISTIERT|#NAME", Bef.ImFix, ignore.case = TRUE) ~ 1,
-      TRUE ~ 0
-    ),
-    neg.EP = case_when(
-      is.na(Bef.EP) ~ NA,  # Falls Bef.EP NA ist, wird EP.neg NA
-      grepl("unauffällig", Bef.EP, ignore.case = TRUE) ~ 1,
-      TRUE ~ 0
-    )
-  )
+<!-- EPcsv1 <- EPcsv |> -->
+<!--   mutate( -->
+<!--     pos.string.iFix = case_when( -->
+<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird suspicious NA -->
+<!--       grepl("\\b(M-)?Protein(e|s|er|en)?\\b|\\b(mono)?klonal(e|es|er|en)?\\b|Bande|Zonierung|Zonen|M-Protein|Para\\w|Inhomogen\\w|Unregelmässig\\w|monolonal\\w|monnolonal\\w|Gradienten\\w|Gammopathie\\w|M-Komponente|monoklonlen|biklonal|M-Gradienten|klonalen|monoklonalen", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
+<!--       TRUE ~ 0 -->
+<!--     ), -->
+<!--     neg.iFix = case_when( -->
+<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.iFix NA -->
+<!--       grepl("unauffällig|unaufällig|unauffälllig|unaufffällig|unaufffälllig|unuaffällig|ünauffällig|unauffällg|unauffälig|unaufälig|negativ|unauffàllig|uanuffällig|uanauffällig", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
+<!--       TRUE ~ 0 -->
+<!--     ), -->
+<!--     polyklon.string.iFix = case_when( -->
+<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA -->
+<!--       grepl("polyklon|Verstärkung|verstärkt|poliklon", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
+<!--       TRUE ~ 0 -->
+<!--     ), -->
+<!--     neg.string.iFix = case_when( -->
+<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA -->
+<!--       grepl("nicht|kein\\w|ohne|kein", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
+<!--       TRUE ~ 0 -->
+<!--     ), -->
+<!--     vorb.string.iFix = case_when( -->
+<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA -->
+<!--       grepl(vorbef, Bef.ImFix, ignore.case = TRUE) ~ 1, -->
+<!--       TRUE ~ 0 -->
+<!--     ), -->
+<!--     no.string.iFix = case_when( -->
+<!--       is.na(Bef.ImFix) ~ NA,  # Falls Bef.ImFix NA ist, wird neg.phrase NA -->
+<!--       grepl("folgt|entfernt|SISTIERT|#NAME", Bef.ImFix, ignore.case = TRUE) ~ 1, -->
+<!--       TRUE ~ 0 -->
+<!--     ), -->
+<!--     neg.EP = case_when( -->
+<!--       is.na(Bef.EP) ~ NA,  # Falls Bef.EP NA ist, wird EP.neg NA -->
+<!--       grepl("unauffällig", Bef.EP, ignore.case = TRUE) ~ 1, -->
+<!--       TRUE ~ 0 -->
+<!--     ) -->
+<!--   ) -->
 
-df <- as.data.frame(table(EPcsv1$neg.iFix, EPcsv1$neg.string.iFix, EPcsv1$pos.string.iFix,EPcsv1$polyklon.string.iFix, EPcsv1$vorb.string.iFix, EPcsv1$no.string.iFix))
-colnames(df) <- c("neg.iFix", "neg.string.iFix", "pos.string.iFix", "polyklon.string.iFix", "VerwVorbefund", "KeinText", "Anzahl")
-flextable(df)
+<!-- df <- as.data.frame(table(EPcsv1$neg.iFix, EPcsv1$neg.string.iFix, EPcsv1$pos.string.iFix,EPcsv1$polyklon.string.iFix, EPcsv1$vorb.string.iFix, EPcsv1$no.string.iFix)) -->
+<!-- colnames(df) <- c("neg.iFix", "neg.string.iFix", "pos.string.iFix", "polyklon.string.iFix", "VerwVorbefund", "KeinText", "Anzahl") -->
+<!-- flextable(df) -->
 
-# save df as excel file
-# write.xlsx(df, "Befundanalyse.xlsx")
+<!-- # save df as excel file -->
+<!-- # write.xlsx(df, "Befundanalyse.xlsx") -->
 
-# string.analys <- EPcsv1 |> 
-#   summarise(
-#     poitive.iFix = sum(suspicious.iFix == 1 & neg.phrase.iFix == 0, na.rm = TRUE),
-#     neg.phrase.iFix = sum(suspicious.iFix == 1 & neg.phrase.iFix == 1 | suspicious.iFix == 0 & neg.phrase.iFix == 0, na.rm = TRUE),
-#     neg.EP = sum(neg.EP == 1, na.rm = TRUE),
-#     neg.EP.pos.iFix = sum(neg.EP == 1 & suspicious.iFix == 1, na.rm = TRUE),
-#     other = sum(suspicious.iFix == 0 & neg.phrase.iFix == 1, na.rm = TRUE)
-#   )
+<!-- # string.analys <- EPcsv1 |>  -->
+<!-- #   summarise( -->
+<!-- #     poitive.iFix = sum(suspicious.iFix == 1 & neg.phrase.iFix == 0, na.rm = TRUE), -->
+<!-- #     neg.phrase.iFix = sum(suspicious.iFix == 1 & neg.phrase.iFix == 1 | suspicious.iFix == 0 & neg.phrase.iFix == 0, na.rm = TRUE), -->
+<!-- #     neg.EP = sum(neg.EP == 1, na.rm = TRUE), -->
+<!-- #     neg.EP.pos.iFix = sum(neg.EP == 1 & suspicious.iFix == 1, na.rm = TRUE), -->
+<!-- #     other = sum(suspicious.iFix == 0 & neg.phrase.iFix == 1, na.rm = TRUE) -->
+<!-- #   ) -->
 
-# EPcsv.red <- EPcsv1 |> 
-#   filter(neg.EP == 1 & suspicious.iFix == 1) |> 
-#   select(ID, Bef.EP, Bef.ImFix, suspicious.iFix, neg.phrase.iFix, neg.EP)
-# 
-positive.iFix.count <- EPcsv1 |>
-  filter(pos.string.iFix == 1 & neg.iFix == 0) |>
-  nrow()
+<!-- # EPcsv.red <- EPcsv1 |>  -->
+<!-- #   filter(neg.EP == 1 & suspicious.iFix == 1) |>  -->
+<!-- #   select(ID, Bef.EP, Bef.ImFix, suspicious.iFix, neg.phrase.iFix, neg.EP) -->
+<!-- #  -->
+<!-- #positive.iFix.count <- EPcsv1 |> -->
+<!--   filter(pos.string.iFix == 1 & neg.iFix == 0) |> -->
+<!--   nrow() -->
 
- negative.iFix.count <- EPcsv1 |> 
-   filter(pos.string.iFix == 1 & neg.string.iFix == 1 | pos.string.iFix == 0 & neg.string.iFix == 0 | neg.iFix == 0)  |> 
-   nrow() 
-# 
-other.count <- EPcsv1 |>
-  filter(pos.string.iFix == 0 & neg.string.iFix == 1 ) |>
-  nrow()
+<!--  #negative.iFix.count <- EPcsv1 |>  -->
+<!--    filter(pos.string.iFix == 1 & neg.string.iFix == 1 | pos.string.iFix == 0 & neg.string.iFix == 0 | neg.iFix == 0)  |>  -->
+<!--    nrow()  -->
+<!-- #  -->
+<!-- other.count <- EPcsv1 |> -->
+<!--   filter(pos.string.iFix == 0 & neg.string.iFix == 1 ) |> -->
+<!--   nrow() -->
 
-# neg.EP.count <- EPcsv1 |> 
-#   filter(neg.EP == 1) |> 
-#   nrow()
-# 
-# neg.EP.pos.iFix <- EPcsv1 |> 
-#   filter(neg.EP == 1 & suspicious.iFix == 1) |> 
-#   nrow()
-#  
-```
+<!-- # neg.EP.count <- EPcsv1 |>  -->
+<!-- #   filter(neg.EP == 1) |>  -->
+<!-- #   nrow() -->
+<!-- #  -->
+<!-- # neg.EP.pos.iFix <- EPcsv1 |>  -->
+<!-- #   filter(neg.EP == 1 & suspicious.iFix == 1) |>  -->
+<!-- #   nrow() -->
+<!-- #   -->
+<!-- ``` -->
+
+
 
 ```{r , echo=TRUE, eval=FALSE,message=FALSE, warning=FALSE}
 # print(head(EPcsv, 10))
@@ -1029,7 +1031,8 @@ ft <-  flextable(my_skim(EPcsv1))
 ft
 ```
 
-[Insgesamt sind `r sum(nrow(na.omit(EPcsv1)))` Immunfixationen befundet worden. Davon sind `r negative.iFix.count` als negativ (unauffällig, oder M-Protein nicht mehr nachweisbar) befundet worden. In `r positive.iFix.count` Fällen wurde ein M-Protein oder eine Zonierung gefunden. `r other.count` Immunfixationen wurden als nicht eindeutig beurteilt.]{style="color:#00008B;font-weight:bold"}
+
+
 
 #### 06.01.2025 Vergleich der EP- und iFix-Befundtexte {.justify}
 Das wichtiste Wort um normale von auffälligen EP-Chromatogrammen durch die BEfundtexte zu unterscheiden ercheint das Wort "unauffällig" zu sein. Hier wird vergleichen wie oft dieses Wort in den EP- und iFix-Befunden vorkommt und wie gross die Schnittmenge ist.
