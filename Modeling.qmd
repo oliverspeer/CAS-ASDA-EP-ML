@@ -26,11 +26,13 @@ dbDisconnect(con)
 
 ## Auswählen der Modellierungsverfahren {.justify}
 - erster Schritt: Random Forest
+      - Klassifikation nach iFix Befunden
+      - Klassifikation nach EP Befunden
 - zweiter Schritt: logistische Regression mit den wichtigsten Variablen aus dem Random Forest
 
 ## Generieren eines Testdesigns {.justify}
 ### Ziel
-Das Modell muss die Klasse *"MGradient"* mit einer Spezifität von 95% und einer Sensitivität von 80% identifizieren.
+[Das Modell muss die Klasse *"unauffällig"* mit einer Spezifität von 90% und einer Sensitivität von 100% identifizieren.]{style="color:#0000B8;font-weight:bold"}
 
 ### Datenaufteilung
 Wie in "Tidy Modeling with R" beschrieben, werde ich die Daten in   
@@ -40,29 +42,31 @@ Wie in "Tidy Modeling with R" beschrieben, werde ich die Daten in
 aufteilen.
 
 ### Testmethodik
-1) Hyperparamtertuning eines random forest mit 10-facher Kreuzvalidierung (Trainigsdaten)  
+1) Hyperparamtertuning eines random forest mit 10-facher Kreuzvalidierung **(Trainigsdaten)**  
 evtl an downsampling denken.  
 
 2) Auswahl des besten random forst Models    
-Metriken: ROC-AUC, F1-Score, Precision-Recall-AUC  
+Metriken: ROC-AUC & accuracy
 3) Auswahl der  wichtigsten Variablen (variable importance)  
-Untersuchung der Wichtigkeit mit gini importance und permutation importance  
-Anzahl der wichtigsten Variablen erreicht 95% der Gesamtwichtigkeit (95% importance score)  
-4) Training & Tuning einer logistischen Regression / Lasso-Regression mit diesen wichtigsten   Variablen (Trainingsdaten)    
-5) Hyperparamtertuning einer logistischen Regression mit 10-facher Kreuzvalidierung (Trainingsdaten)    
+Untersuchung der Wichtigkeit mit permutation importance  
+Anzahl der wichtigsten Variablen erreicht 95% der Gesamtwichtigkeit (95% importance score)?   
+4) Training & Tuning einer logistischen Regression / Lasso-Regression mit diesen wichtigsten   Variablen **(Trainingsdaten)**    
+5) Hyperparamtertuning einer logistischen Regression mit 10-facher Kreuzvalidierung **(Trainingsdaten)**    
 6) Auswahl des besten Regressionsmodels    
-Metriken: ROC-AUC, F1-Score, Precision-Recall-AUC  
-7) Vergleich des besten random forest und der besten Regression auf den Validationsdaten  
+Metriken: ROC-AUC, accuracy  
+7) Vergleich des besten random forest und der besten Regression auf den **Validationsdaten**  
 8) Auswahl des sinnvollsten Models (Einsatz im Alltag, IT-ressourcen etc als Entscheidungsgrundlage)
-9) Testen des finales Models auf den Test-Daten  
-Metriken: ROC-AUC, F1-Score, Precision-Recall-AUC, Confusion Matrix
+9) Testen des finales Models auf den **Test-Daten**  
+Metriken: ROC-AUC, accuracy, Sensitivität, Spezifität, PPV, NPV  
+
+[welche Test sollte ich noch berücksichtigen?]{style="color:#0000B8;font-weight:bold"}
 
 ### Evaluationsmetriken
 - Sensitivität und ROC-AUC 
 - overall classification accuracy (?)
 
 ## Erstellen der Modelle {.justify}
-### Random Forest {.justify}
+### Random Forest I {.justify}
 #### Erstes Tuning: recipe, tuning spec, workflow, 10x resempling {.justify}
 ```{r random forest recipe, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 
@@ -218,7 +222,7 @@ final.rf
 ```
 
 #### Die wichtigsten Variablen {.unnumbered}
-```{r important variables, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r important-variables, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # variable importance
 library(vip)
 
@@ -232,7 +236,7 @@ saveRDS(final.rf.imp, "final_rf_imp.rds")
 ```
 
 
-```{r fig important variables, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r fig-important-variables, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-important-variables
 #| fig.cap: Wichtigste Variablen
 #| 
@@ -354,7 +358,7 @@ rf.grid <- grid_regular(
 
 rf.grid
 ```
-# Tune Spezifikationen und Workflow 
+#### Tune Spezifikationen und Workflow 
 
 ```{r specs finetuning II, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # tune setting
@@ -378,7 +382,7 @@ tune.wf
 ```
 
 
-```{r finetuning, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r finetuningII, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 library(future)
 
 plan(multisession, workers = 5)
@@ -424,7 +428,7 @@ regular.res |>
 ```
 
 #### Auswahl des besten Modells {.unnumbered}
-```{r bestmodelRF, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r bestmodelRFII, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 best.auc <- select_best(regular.res, metric = "roc_auc")
 best.auc
 
@@ -436,7 +440,7 @@ final.rf
 ```
 
 #### Die wichtigsten Variablen {.unnumbered}
-```{r important variables, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r important-variablesII, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # variable importance
 library(vip)
 plan(multisession, workers = 5)
@@ -453,8 +457,8 @@ saveRDS(final.rf.imp, "final_EPB_rf_imp.rds")
 ```
 
 
-```{r fig important variables, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-important-variables
+```{r fig-important-variablesII, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-EPBimportant-variables
 #| fig.cap: Wichtigste Variablen
 #| 
 final.rf.imp <- readRDS("final_EPB_rf_imp.rds")
@@ -462,150 +466,294 @@ library(vip)
 vip(final.rf.imp, geom = "point", num_features = 50)
 ```
 
-<!-- ```{r random forest, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- # Modell Definition -->
-<!-- rf.mod <-  -->
-<!--   rand_forest(trees = 1000) |>  -->
-<!--   set_engine("ranger") |> -->
-<!--   set_mode("classification") -->
+```{r tab-important-variablesII, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-EPBimportant-variables
+#| tab.cap: Wichtigste Variablen des Random Forest Modells
+#| 
+final.rf.imp <- readRDS("final_EPB_rf_imp.rds")
+library(vip)
+var.imp <- vi(final.rf.imp) |> 
+  arrange(desc(Importance)) |> 
+  head(50)
 
-<!-- # Modell Training -->
-<!-- set.seed(8173) -->
-<!-- rf.fit <-  -->
-<!--   rf.mod |>  -->
-<!--   fit(Klassifizierung ~ ., data = EPtraining) -->
-<!-- rf.fit -->
-<!-- saveRDS(rf.fit, "rf_fit.rds") -->
-<!-- rf.fit <- readRDS("rf_fit.rds") -->
+ft <-  var.imp |> 
+  flextable()
+ft
 
-<!-- ``` -->
-<!-- ### resampling {.justify} -->
-<!-- ```{r resampling, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- # resampling -->
-<!-- EPvalidation <- readRDS("EPvalidation.rds") -->
-<!-- set.seed(8173) -->
-<!-- folds <- vfold_cv(EPvalidation, v = 10) -->
-<!-- folds -->
+```
 
-<!-- # workflow Definition -->
-<!-- rf.wf <- workflow() |> -->
-<!--   add_model(rf.mod) |> -->
-<!--   add_formula(Klassifizierung ~ .) -->
+
+### Logistische Regression {.justify}
+
+#### Model-Fit mit den Top 50: recipe, tuning spec, workflow, 10x resempling {.justify}
+
+```{r logistic-regression, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+EPBtraining <- readRDS("EPBtraining.rds")
+
+# formula
+EPB.formula <- as.formula(paste("EPKlassifizierung ~", paste(var.imp$Variable, collapse = " + ")))
 
 
 
 
-<!-- ```  -->
-<!-- ## Bewerten des Modells {.justify} -->
+# Funktion zur parallelisierten Durchführung der Cross-Validation einer logistischen Regression (glm binomial) mit Rezept und Modellspezifikation
+# fun.cv.log.reg <- function(formula, training_data, folds = 10, seed = 8173, workers = 10) {
+#   set.seed(seed)
+# 
+#   # Cross-Validation-Splits erstellen
+#   cv_folds <- vfold_cv(training_data, v = folds)
+# 
+#   # Rezept erstellen
+#   log_rec <-
+#     recipe(formula, data = training_data)
+# 
+#   # Modellspezifikationen
+#   log_spec <-
+#     logistic_reg() |>
+#     set_engine(
+#       engine = "glm",
+#       family = binomial
+#     ) |>
+#     set_mode("classification")
+# 
+#   # Workflow erstellen
+#   log_wf <- workflow() |>
+#     add_recipe(log_rec) |>
+#     add_model(log_spec)
+# 
+#   # Hilfsfunktion zum Extrahieren von Modellen
+#   get_model <- function(x) {
+#     extract_fit_parsnip(x) |> tidy()
+#   }
+# 
+#   # Parallele Verarbeitung einrichten
+#   plan(multisession, workers = workers)
+# 
+#   # Cross-Validation ausführen
+#   set.seed(seed)
+#   log_res <- log_wf |>
+#     fit_resamples(
+#       resamples = cv_folds,
+#       parallel_over = "resamples",
+#       metrics = metric_set(accuracy, roc_auc, sens, spec, ppv, npv),
+#       control = control_resamples(
+#         save_pred = TRUE,
+#         extract = get_model
+#       )
+#     )
+# 
+#   return(log_res)
+# }
+# 
+# save(fun.cv.log.reg, file = "fun.cv.log.reg.RData")
+# Beispielaufruf der Funktion
+# Ergebnis <- perform_cross_validation(formula = EPB.formula, training_data = EPBtraining)
 
-<!-- ### Sensitivität und ROC-AUC {.justify} -->
-<!-- ```{r sensitivity, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- # Sensitivität und ROC-AUC -->
-<!-- # resampling -->
-<!-- rf.res <-  -->
-<!--   rf.wf |> -->
-<!--   fit_resamples(resamples = folds) -->
-<!-- saveRDS(rf.res, "rf_res10k.rds") -->
-<!-- rf.res <- readRDS("rf_res10k.rds") -->
-<!-- #rf.res -->
+source("fun.cv.log.reg.RData")
 
-<!-- collect_metrics(rf.res)  -->
+log.res <-  fun.cv.log.reg(EPB.formula, EPBtraining)
 
-
-
-<!-- ``` -->
-
-
-<!-- ### Tuning {.justify} -->
-<!-- ```{r tuning, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
-<!-- # Tuning -->
-<!-- tune.spec <- decision_tree( -->
-<!--   cost_complexity = tune(), -->
-<!--   tree_depth = tune() -->
-<!-- ) |>  -->
-<!--   set_engine("rpart") |>  -->
-<!--   set_mode("classification") -->
-
-<!-- tune.spec -->
-
-<!-- tree.grid <- grid_regular( -->
-<!--   cost_complexity(), -->
-<!--   tree_depth(), -->
-<!--   levels = 5 -->
-<!-- ) -->
-
-<!-- tree.grid -->
-
-<!-- set.seed(8173) -->
-<!-- tune.wf <- workflow() |> -->
-<!--   add_model(tune.spec) |> -->
-<!--   add_formula(Klassifizierung ~ .) -->
-
-<!-- tune.res <-  -->
-<!--   tune.wf |> -->
-<!--   tune_grid( -->
-<!--     resamples = folds, -->
-<!--     grid = tree.grid#, -->
-<!--     #control = control_grid(save_pred = TRUE) -->
-<!--   ) -->
-<!-- saveRDS(tune.res, "tune_res.rds") -->
-<!-- ``` -->
-
-
-<!-- ```{r figtuning, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- #| label: fig-tuning -->
-<!-- #| fig.cap: tree depth und cost complexity tuning -->
-<!-- tune.res <- readRDS("tune_res.rds") -->
-
-<!-- tune.res |>  -->
-<!--   collect_metrics()  |> -->
-<!--   mutate(tree_depth = factor(tree_depth)) |> -->
-<!--   ggplot(aes(cost_complexity, mean, color = tree_depth)) + -->
-<!--   geom_line(size = 1.5, alpha = 0.6) + -->
-<!--   geom_point(size = 2) + -->
-<!--   facet_wrap(~ .metric, scales = "free", nrow = 2) + -->
-<!--   scale_x_log10(labels = scales::label_number()) + -->
-<!--   scale_color_viridis_d(option = "plasma", begin = .9, end = 0) + -->
-<!--   theme_minimal() + -->
-<!--   theme(legend.position = "bottom") + -->
-<!--   labs( -->
-<!--     x = "cost complexity", -->
-<!--     y = "mean", -->
-<!--     color = "tree depth" -->
-<!--   ) -->
+saveRDS(log.res, "log_res.rds")
+  
 
 
-<!-- ``` -->
-
-<!-- ```{r figtuning1, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- #| label: fig-tuning1 -->
-<!-- #| fig.cap: tree depth und cost complexity tuning -->
-<!-- tune.res <- readRDS("tune_res.rds") -->
-
-<!-- tune.res |>  -->
-<!--   collect_metrics()  |> -->
-<!--   mutate(tree_depth = factor(tree_depth)) |> -->
-<!--   ggplot(aes(cost_complexity, mean, color = tree_depth)) + -->
-<!--   geom_line(size = 1.5, alpha = 0.6) + -->
-<!--   geom_point(size = 2) + -->
-<!--   facet_wrap(~ .metric, scales = "free", nrow = 2) + -->
-<!--   scale_x_log10(labels = scales::label_number()) + -->
-<!--   scale_color_viridis_d(option = "plasma", begin = .9, end = 0) -->
-<!-- ``` -->
+```
 
 
-<!-- ```{r tabtuningROC, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- #| label: tab-tuningROC -->
-<!-- #| tab.cap: Tuning ROC-AUC Ergebnisse  -->
 
-<!-- tune.res |>  -->
-<!--   show_best(metric = "roc_auc") -->
-<!-- ``` -->
+##### Performance Metrics der logistischen Regression
+```{r performance-logistic-regression, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+log.res <- readRDS("log_res.rds")
+log.res |> 
+  collect_metrics(summarize = TRUE) |> 
+  flextable()
+
+```
+#### Model-Fit mit allen fdd features {.justify}
+```{r logistic-regression-all, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+EPBtraining <- readRDS("EPBtraining.rds")
+
+# formula
+EPB.formula <- as.formula(paste("EPKlassifizierung ~", paste(names(EPBtraining)[!(names(EPBtraining) %in% c("ID", "EPKlassifizierung"))]
+, collapse = " + ")))
+
+log.res.all <-  fun.cv.log.reg(EPB.formula, EPBtraining)
+
+saveRDS(log.res.all, "log_res_all.rds")
+
+```
+
+##### Performance Metrics der logistischen Regression
+```{r performance-logistic-regression-all, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+log.res.all <- readRDS("log_res_all.rds")
+log.res.all |> 
+  collect_metrics(summarize = TRUE) |> 
+  flextable()
+```
 
 
-<!-- ```{r tabtuningAccur, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- #| label: tab-tuningAccur -->
-<!-- #| tab.cap: Tuning Accuracy Ergebnisse -->
-<!-- tune.res |>  -->
-<!--   show_best(metric = "accuracy") -->
-<!-- ``` -->
+### Lasso Regression {.justify}
+#### Model-Fit mit den Top 50: recipe, tuning spec, workflow, 10x resempling {.justify}
+```{r lasso-regression, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# Daten einlesen
+EPBtraining <- readRDS("EPBtraining.rds")
+
+# cross validation
+
+set.seed(8173)
+EPboot <- bootstraps(EPBtraining, strata = EPKlassifizierung)
+
+# formula
+EPB.formula <- as.formula(paste("EPKlassifizierung ~", paste(names(EPBtraining)[!(names(EPBtraining) %in% c( "EPKlassifizierung"))]
+, collapse = " + ")))
+
+EPB.formula
+
+# recipe
+lasso.rec <- 
+  recipe(EPB.formula, data = EPBtraining) |>
+  update_role(ID, new_role = "ID")
+    
+
+# model specification
+lasso.spec <- 
+  logistic_reg(penalty = tune(), mixture = 1) |> 
+  set_engine("glmnet") 
+lasso.spec
+
+# grid
+lasso.grid <- grid_regular(
+  penalty(),
+  levels = 50
+)
+lasso.grid
+
+# workflow
+lasso.wf <- workflow() |>
+  add_recipe(lasso.rec) |>
+  add_model(lasso.spec)
+lasso.wf
+```
+
+
+```{r lasso-regression-tuning, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# tuning
+plan(multisession, workers = 10)
+
+set.seed(8173)
+lasso.res <- tune_grid(
+  lasso.wf,
+  resamples = EPboot,
+  grid = lasso.grid,
+  control = control_grid(verbose = TRUE)
+)
+
+plan(sequential)
+
+saveRDS(lasso.res, "lasso_res.rds")
+```
+
+##### Performance Metrics der Lasso Regression
+```{r performance-lasso-regression, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+lasso.res <- readRDS("lasso_res.rds")
+lasso.res |> 
+  collect_metrics(summarize = TRUE)
+```
+
+
+```{r fig-performance-lasso-regression, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-lasso-regression-tuning
+#| fig.cap: Tuning der Lasso Regression
+ lasso.res |> 
+  collect_metrics() |> 
+  ggplot(aes(penalty, mean, color = .metric)) +
+  geom_errorbar(aes(
+    ymin = mean - std_err,
+    ymax = mean + std_err
+  ),
+  alpha = 0.5
+  ) +
+  geom_line(size = 1.5) +
+  facet_wrap(~.metric, scales = "free", nrow = 2) +
+  scale_x_log10() +
+  theme(legend.position = "none")
+```
+
+#### Auswahl des besten Modells {.unnumbered}
+```{r bestmodelLasso, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+lowest.roc <- lasso.res  |> 
+  select_best(metric = "roc_auc")
+
+saveRDS(lowest.roc, "lowest_roc.rds")
+
+final.lasso <- finalize_workflow(
+  lasso.wf,
+  lowest.roc
+)
+
+saveRDS(final.lasso, "final_lasso.rds")
+```
+
+
+```{r fig-lasso-importance, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-lasso-importance
+#| fig.cap: Wichtigste Variablen der Lasso Regression
+
+final.lasso <- readRDS("final_lasso.rds")
+lowest.roc <- readRDS("lowest_roc.rds")
+
+library(vip)
+
+final.lasso |>
+  fit(EPBtraining) |>
+  pull_workflow_fit() |>
+  vi(lambda = lowest.roc$penalty) |>
+  mutate(
+    Importance = abs(Importance),
+    Variable = fct_reorder(Variable, Importance)
+  ) |>
+  slice_max(order_by = Importance, n = 40) |>
+  ggplot(aes(x = Importance, y = Variable, fill = Sign)) +
+  geom_col() +
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(y = NULL)
+
+```
+
+#### Fit und Vorhersagen mit der Lasso-Regression {.unnumbered}
+```{r fit-lasso-regression, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Fit des finalen Modells
+EPBvalidation <- readRDS("EPBvalidation.rds") 
+
+
+lasso.fit <- fit(final.lasso, data = EPBtraining)
+
+saveRDS(lasso.fit, "lasso_fit.rds")
+
+# Vorhersagen
+lasso.pred <- predict(lasso.fit, new_data = EPBvalidation, type = "prob") |> 
+   bind_cols(predict(lasso.fit, new_data = EPBvalidation, type = "class")) |>
+   bind_cols(EPBvalidation)
+saveRDS(lasso.pred, "lasso_pred.rds")
+```
+
+
+```{r tab-metrics-lasso-regression, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-lasso-regression
+#| tab.cap: Metriken der Lasso Regression
+
+lasso.pred <- readRDS("lasso_pred.rds")
+
+# Calculate metrics
+results <- bind_rows(
+  roc_auc(data = lasso.pred, truth = EPKlassifizierung, .pred_unauffällig),
+  accuracy(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  sensitivity(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  specificity(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  ppv(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  npv(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class)
+) |> flextable()
+results
+```
