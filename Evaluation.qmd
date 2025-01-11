@@ -14,11 +14,485 @@ cat("Version:\n",format(file.info("Evaluation.qmd")$mtime,"%d. %B %Y"))
 :::
 :::::
 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+source("StartUp.R")
+StartUpRoutine()
+dbDisconnect(con)
+
+```
+
 
 
 # Evaluation {.unnumbered}
 
-[text & code folgt]{style="#00008B"}
+## Random Forrest I mit iFix Befund-Text-Klassifikation {.justify}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+#EPtraining <- readRDS("EPtraining.rds")
+EPvalidation <- readRDS("EPvalidation.rds")
+
+# recipe building
+rf.rec <- 
+  recipe(Klassifizierung ~ ., data = EPvalidation) |>
+  update_role(ID, new_role = "ID") 
+
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+
+
+
+# read model
+final.rfI <- readRDS("final_rf.rds") |> 
+  set_engine("ranger", num.threads = 2)
+
+# workflow
+rfI.wf <- workflow() |>
+  add_recipe(rf.rec) |>
+  add_model(final.rfI)
+
+
+# start parallel processing
+library(future)
+plan(multisession, workers = 5)
+
+# fit model
+rfI.res <- 
+  rfI.wf |> 
+  fit_resamples(
+    resamples = EPfolds,
+    metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+    control = control_resamples(save_pred = TRUE, 
+                                allow_par = TRUE, 
+                                save_workflow = TRUE
+                                ),
+    parallel_over = "resamples"
+  )
+
+
+
+plan(sequential)
+
+saveRDS(rfI.res, "rfI_res.rds")
+```
+
+### Metriken {.unnumbered}
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+
+rfI.res <- readRDS("rfI_res.rds")
+rfI.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+
+
+```
+
+### Confusion Matrix {.unnumbered}
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-rfI-conf-mat
+#| fig.cap: Confusion Matrix des Random Forrest I
+
+#rfI.pred |> 
+rfI.res |> 
+  collect_predictions() |>
+  conf_mat(truth = Klassifizierung, estimate = .pred_class) |> 
+  autoplot(type = "heatmap")
+
+
+```
+
+
+
+## Random Forrest II mit EP Befund-Text-Klassifikation für ROC-AUC getuned {.justify}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+#EPtraining <- readRDS("EPBtraining.rds")
+EPvalidation <- readRDS("EPBvalidation.rds")
+
+# recipe building
+rf.rec <- 
+  recipe(EPKlassifizierung ~ ., data = EPvalidation) |>
+  update_role(ID, new_role = "ID") 
+
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+
+
+
+# read model
+final.rfII <- readRDS("final_EPB_rf.rds") |> 
+  set_engine("ranger", num.threads = 1
+             )
+
+# workflow
+rfI.wf <- workflow() |>
+  add_recipe(rf.rec) |>
+  add_model(final.rfII)
+
+
+# start parallel processing
+library(future)
+plan(multisession, workers = 10)
+
+# fit model
+rfII.res <- 
+  rfI.wf |> 
+  fit_resamples(
+    resamples = EPfolds,
+    metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+    control = control_resamples(save_pred = TRUE, 
+                                allow_par = TRUE, 
+                                save_workflow = TRUE,
+                                parallel_over = "resamples"
+                                )
+  )
+
+
+
+plan(sequential)
+
+saveRDS(rfII.res, "rfII_val_res.rds")
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-rfII
+#| tab.cap: Metriken des Random Forrest II
+rfII.res <- readRDS("rfII_val_res.rds")
+rfII.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.unnumbered}
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-rfII-conf-mat
+#| fig.cap: Confusion Matrix des Random Forrest II
+rfII.res |> 
+  collect_predictions() |> 
+  conf_mat(truth = EPKlassifizierung, estimate = .pred_class) |> 
+  autoplot(type = "heatmap")
+```
+
+
+
+## Random Forrest II mit EP Befund-Text-Klassifikation für NPV getuned {.justify}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+#EPtraining <- readRDS("EPBtraining.rds")
+EPvalidation <- readRDS("EPBvalidation.rds")
+
+# recipe building
+rf.rec <- 
+  recipe(EPKlassifizierung ~ ., data = EPvalidation) |>
+  update_role(ID, new_role = "ID") 
+
+
+# cross validation data setting
+# set.seed(8173)
+# EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+
+
+
+# read model
+final.rf.npv <- finalize_model(tune.spec, best.npv) |> 
+  set_engine("ranger", num.threads = 1)
+
+
+# workflow
+rfI.wf <- workflow() |>
+  add_recipe(rf.rec) |>
+  add_model(final.rf.npv)
+
+
+# start parallel processing
+library(future)
+plan(multisession, workers = 10)
+
+# fit model
+rfII.npv.res <- 
+  rfI.wf |> 
+  fit_resamples(
+    resamples = EPfolds,
+    metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+    control = control_resamples(save_pred = TRUE, 
+                                allow_par = TRUE, 
+                                save_workflow = TRUE,
+                                parallel_over = "resamples"
+                                )
+  )
+
+
+
+plan(sequential)
+
+saveRDS(rfII.npv.res, "rfII_npv_res.rds")
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-rfII-npv
+#| tab.cap: Metriken des Random Forrest II für NPV
+rfII.npv.res <- readRDS("rfII_npv_res.rds")
+rfII.npv.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.unnumbered}
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-rfII-npv-conf-mat-plot
+#| fig.cap: Confusion Matrix des Random Forrest II für NPV
+rfII.npv.res |> 
+  collect_predictions() |>  
+  conf_mat(truth = EPKlassifizierung, estimate = .pred_class) |> 
+  autoplot(type = "heatmap")
+```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-rfII-npv-roc-curve-plot
+#| fig.cap: ROC Kurve des Random Forrest II für NPV
+rfII.npv.res |> 
+  collect_predictions() |>  
+  roc_curve(truth = EPKlassifizierung, .pred_suspicous) |> 
+  autoplot()
+```
+
+
+## Logistische Rgression mit EP Befund-Text-Klassifikation für ROC-AUC getuned {.justify}
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-log-regression
+#| tab.cap: Metriken der logistischen Regression
+log.res <- readRDS("log_res.rds")
+log.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.unnumbered}
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-log-conf-mat
+#| fig.cap: Confusion Matrix der logistischen Regression
+log.res |> 
+  collect_predictions() |> 
+  conf_mat(truth = EPKlassifizierung, estimate = .pred_class)|> 
+  autoplot(type = "heatmap")
+```
+
+
+## Logistische Rgression mit EP Befund-Text-Klassifikation für ROC-AUC getuned {.justify}
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-log-regression
+#| tab.cap: Metriken der logistischen Regression
+log.res <- readRDS("log_res_all.rds")
+log.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.unnumbered}
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-log-conf-mat
+#| fig.cap: Confusion Matrix der logistischen Regression
+log.res |> 
+  collect_predictions() |> 
+  conf_mat(truth = EPKlassifizierung, estimate = .pred_class)|> 
+  autoplot(type = "heatmap")
+```
+
+## Lasso Regression mit EP Befund-Text-Klassifikation für NPV getuned {.justify}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+EPBtraining <- readRDS("EPBtraining.rds")
+EPBvalidation <- readRDS("EPBvalidation.rds")
+
+# cross validation data set
+set.seed(8173)
+EPboot <- bootstraps(EPBvalidation, strata = EPKlassifizierung, times = 5)
+
+# formula
+EPB.formula <- as.formula(paste("EPKlassifizierung ~", paste(names(EPBtraining)[!(names(EPBtraining) %in% c( "EPKlassifizierung"))]
+, collapse = " + ")))
+
+EPB.formula
+
+# recipe building
+lasso.rec <- 
+  recipe(EPB.formula, data = EPBtraining) |>
+  update_role(ID, new_role = "ID")
+
+# cross validation data setting
+# set.seed(8173)
+# EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+
+
+
+# read model
+final.lasso <- readRDS("final_lasso.rds") |> 
+  pull_workflow_spec() |>
+  set_engine("glmnet", num.threads = 1)
+
+
+# workflow
+lasso.wf <- workflow() |>
+  add_recipe(lasso.rec) |>
+  add_model(final.lasso)
+
+
+# start parallel processing
+library(future)
+plan(multisession, workers = 10)
+
+# fit model
+lasso.res <- 
+  lasso.wf |> 
+  fit_resamples(
+    resamples = EPboot,
+    metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+    control = control_resamples(save_pred = TRUE, 
+                                save_workflow = TRUE,
+                                parallel_over = "resamples"
+                                )
+  )
+
+
+
+plan(sequential)
+
+saveRDS(lasso.res, "lasso_res.rds")
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+lasso.res <- readRDS("lasso_res.rds")
+lasso.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.unnumbered}
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-lasso-conf-mat
+#| fig.cap: Confusion Matrix der Lasso Regression
+lasso.res |> 
+  collect_predictions() |> 
+  conf_mat(truth = EPKlassifizierung, estimate = .pred_class) |> 
+  autoplot(type = "heatmap")
+```
+
+
+
+<!-- ```{r, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- ref.val.res <- readRDS("rfII_val_res.rds") -->
+<!-- ref.val.res |>  -->
+<!--   collect_metrics() -->
+<!-- ``` -->
+
+
+<!-- #### Fit und Vorhersagen mit der RFI {.unnumbered} -->
+<!-- ```{r fit-rfI, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- # Fit des finalen Modells -->
+<!-- EPBvalidation <- readRDS("EPBvalidation.rds") -->
+<!-- EPBtraining <- readRDS("EPBtraining.rds") -->
+<!-- final.rf <- readRDS("final_rf.rds") -->
+
+<!-- rfI.fit <- fit(final.rf, data = EPBtraining) -->
+
+<!-- saveRDS(rfI.fit, "rfI_fit.rds") -->
+
+<!-- # Vorhersagen -->
+<!-- rfI.pred <- predict(rfI.fit, new_data = EPBvalidation, type = "prob") |>  -->
+<!--    bind_cols(predict(rfI.fit, new_data = EPBvalidation, type = "class")) |> -->
+<!--    bind_cols(EPBvalidation) -->
+<!-- saveRDS(rfI.pred, "rfI_pred.rds") -->
+<!-- ``` -->
+
+
+<!-- ```{r tab-metrics-rfI-regression, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: tab-metrics-rfI-regression -->
+<!-- #| tab.cap: Metriken der rfI Regression -->
+
+<!-- rfI.pred <- readRDS("rfI_pred.rds") -->
+
+<!-- # Calculate metrics -->
+<!-- results <- bind_rows( -->
+<!--   roc_auc(data = rfI.pred, truth = EPKlassifizierung, .pred_unauffällig), -->
+<!--   accuracy(data = rfI.pred, truth = EPKlassifizierung, estimate = .pred_class), -->
+<!--   kap(data = rfI.pred, truth = EPKlassifizierung, estimate = .pred_class), -->
+<!--   sensitivity(data = rfI.pred, truth = EPKlassifizierung, estimate = .pred_class), -->
+<!--   specificity(data = rfI.pred, truth = EPKlassifizierung, estimate = .pred_class), -->
+<!--   ppv(data = rfI.pred, truth = EPKlassifizierung, estimate = .pred_class), -->
+<!--   npv(data = rfI.pred, truth = EPKlassifizierung, estimate = .pred_class), -->
+<!--   f_meas(data = rfI.pred, truth = EPKlassifizierung, estimate = .pred_class) -->
+<!-- ) |> flextable() -->
+<!-- results -->
+<!-- ``` -->
 
 ## Evaluieren der Ergebnisse {.justify}
 
