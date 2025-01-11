@@ -108,6 +108,8 @@ tune.wf <- workflow() |>
   add_recipe(tree.rec) |>
   add_model(tune.spec)
 
+
+
 tune.wf
 ```
 
@@ -260,7 +262,7 @@ EPB.rec <-
   recipe(EPKlassifizierung ~ ., data = EPBtraining) |>
   update_role(ID, new_role = "ID") 
 
-EPB.rec
+
 ```
 
 
@@ -312,6 +314,7 @@ set.seed(8173)
 tune.EPB.res <- tune_grid(parallel_over = "resamples",
   tune.wf,
   resamples = EPfolds,
+  metrics = metric_set(roc_auc, sens, spec, npv),
   grid = 10
 )
 
@@ -319,11 +322,13 @@ tune.EPB.res <- tune_grid(parallel_over = "resamples",
 
 future::plan("sequential")
 
-saveRDS(tune.EPB.res, "tune_EPB_resRF.rds")
+saveRDS(tune.EPB.res, "tune_npv_EPB_resRF.rds")
 ```
 
 #### Auswertung des EPB Tuning {.unnumbered}
 ```{r figtuningRFII, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figtuningRFII
+#| fig.cap: Tuning des Random Forest Modells für die EP Befunde
 
 tune.EPB.res <- readRDS("tune_EPB_resRF.rds")
 
@@ -370,7 +375,7 @@ tune.spec <- rand_forest(
   set_mode("classification")  |> 
   set_engine("ranger", num.threads = 2)
 
-tune.spec
+#tune.spec
 
 # workflow
 tune.wf <- workflow() |>
@@ -391,6 +396,7 @@ set.seed(8173)
 regular.EPB.res <- tune_grid(
   tune.wf,
   resamples = EPfolds,
+  metrics = metric_set(roc_auc, sens, spec, npv),
   grid = rf.grid,
   parallel_over = "resamples",
   control = control_grid(verbose = TRUE)
@@ -398,12 +404,14 @@ regular.EPB.res <- tune_grid(
 
 plan(sequential)
 
-saveRDS(regular.EPB.res, "regular_EPB_resRF.rds")
+saveRDS(regular.EPB.res, "regular_EPB_resRF_npv.rds")
 
 ```
 
 
 ```{r figfinetuning II1, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figfinetuningII1
+#| fig.cap: 1. Feintuning des Random Forest Modells für die EP Befunde
 regular.res <- readRDS("regular_EPB_resRF1.rds")
 regular.res |>
   collect_metrics() |>
@@ -416,6 +424,9 @@ regular.res |>
 ```
 
 ```{r figfinetuning II2, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figfinetuningII2
+#| fig.cap: 2. Feintuning des Random Forest Modells für die EP Befunde
+#| 
 regular.res <- readRDS("regular_EPB_resRF.rds")
 regular.res |>
   collect_metrics() |>
@@ -427,8 +438,24 @@ regular.res |>
   labs(y = "AUC")
 ```
 
+```{r figfinetuning II2npv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figfinetuningII2npv
+#| fig.cap: 2. Feintuning des Random Forest Modells für die EP Befunde Basis NPV
+#| 
+regular.res <- readRDS("regular_EPB_resRF_npv.rds")
+regular.res |>
+  collect_metrics() |>
+  filter(.metric == "npv") |>
+  mutate(min_n = factor(min_n)) |>
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "NPV")
+```
+
 #### Auswahl des besten Modells {.unnumbered}
 ```{r bestmodelRFII, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+regular.res <- readRDS("regular_EPB_resRF.rds")
 best.auc <- select_best(regular.res, metric = "roc_auc")
 best.auc
 
@@ -437,6 +464,18 @@ final.rf <- finalize_model(tune.spec, best.auc)
 saveRDS(final.rf, "final_EPB_rf.rds")
 
 final.rf
+```
+
+```{r bestmodelRFIInpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+regular.res <- readRDS("regular_EPB_resRF_npv.rds")
+best.npv <- select_best(regular.res, metric = "npv")
+best.npv
+
+final.rf.npv <- finalize_model(tune.spec, best.npv)
+
+saveRDS(final.rf.npv, "final_EPB_rf_npv.rds")
+
+final.rf.npv
 ```
 
 #### Die wichtigsten Variablen {.unnumbered}
@@ -550,7 +589,7 @@ EPB.formula <- as.formula(paste("EPKlassifizierung ~", paste(var.imp$Variable, c
 # Beispielaufruf der Funktion
 # Ergebnis <- perform_cross_validation(formula = EPB.formula, training_data = EPBtraining)
 
-source("fun.cv.log.reg.RData")
+source("fun.cv.log.reg.R")
 
 log.res <-  fun.cv.log.reg(EPB.formula, EPBtraining)
 
@@ -565,10 +604,15 @@ saveRDS(log.res, "log_res.rds")
 ##### Performance Metrics der logistischen Regression
 ```{r performance-logistic-regression, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 log.res <- readRDS("log_res.rds")
-log.res |> 
-  collect_metrics(summarize = TRUE) |> 
+log.res |>
+  collect_metrics(summarize = TRUE) |>    
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
   flextable()
-
 ```
 #### Model-Fit mit allen fdd features {.justify}
 ```{r logistic-regression-all, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
@@ -590,7 +634,14 @@ saveRDS(log.res.all, "log_res_all.rds")
 log.res.all <- readRDS("log_res_all.rds")
 log.res.all |> 
   collect_metrics(summarize = TRUE) |> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
   flextable()
+
 ```
 
 
@@ -601,7 +652,6 @@ log.res.all |>
 EPBtraining <- readRDS("EPBtraining.rds")
 
 # cross validation
-
 set.seed(8173)
 EPboot <- bootstraps(EPBtraining, strata = EPKlassifizierung)
 
@@ -647,8 +697,13 @@ lasso.res <- tune_grid(
   lasso.wf,
   resamples = EPboot,
   grid = lasso.grid,
-  control = control_grid(verbose = TRUE)
-)
+  parallel_over = "resamples",
+  metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+  control = control_grid(verbose = TRUE,
+                         save_pred = TRUE,
+                         parallel_over = "resamples"
+                         )
+                      )
 
 plan(sequential)
 
@@ -659,7 +714,15 @@ saveRDS(lasso.res, "lasso_res.rds")
 ```{r performance-lasso-regression, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 lasso.res <- readRDS("lasso_res.rds")
 lasso.res |> 
-  collect_metrics(summarize = TRUE)
+  collect_metrics(summarize = TRUE) |> 
+    mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+
 ```
 
 
@@ -682,6 +745,7 @@ lasso.res |>
 ```
 
 #### Auswahl des besten Modells {.unnumbered}
+##### ROC-AUC
 ```{r bestmodelLasso, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 lowest.roc <- lasso.res  |> 
   select_best(metric = "roc_auc")
@@ -692,6 +756,8 @@ final.lasso <- finalize_workflow(
   lasso.wf,
   lowest.roc
 )
+
+final.lasso
 
 saveRDS(final.lasso, "final_lasso.rds")
 ```
@@ -722,11 +788,59 @@ final.lasso |>
 
 ```
 
-#### Fit und Vorhersagen mit der Lasso-Regression {.unnumbered}
+##### NPV
+```{r bestmodelLasso-npv, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+show_best(lasso.res, metric = "npv")
+
+best.npv <- lasso.res  |> 
+  select_best(metric = "npv")
+
+saveRDS(best.npv, "best_npv.rds")
+
+final.lasso.npv <- finalize_workflow(
+  lasso.wf,
+  best.npv
+)
+
+
+saveRDS(final.lasso.npv, "final_lasso_npv.rds")
+
+final.lasso.npv
+```
+
+
+```{r fig-lasso-importance-npv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-lasso-importance-npv
+#| fig.cap: Wichtigste Variablen der Lasso Regression nach NPV-Tuning
+
+final.lasso.npv <- readRDS("final_lasso_npv.rds")
+best.npv <- readRDS("best_npv.rds")
+
+library(vip)
+
+final.lasso.npv |>
+  fit(EPBtraining) |>
+  pull_workflow_fit() |>
+  vi(lambda = best.npv$penalty) |>
+  mutate(
+    Importance = abs(Importance),
+    Variable = fct_reorder(Variable, Importance)
+  ) |>
+  slice_max(order_by = Importance, n = 20) |>
+  ggplot(aes(x = Importance, y = Variable, fill = Sign)) +
+  geom_col() +
+  scale_x_continuous(expand = c(0, 0)) +
+  labs(y = NULL)
+
+```
+
+
+
+#### Fit und Vorhersagen mit der Lasso-Regression nach Tuning für ROC-AUC {.unnumbered}
 ```{r fit-lasso-regression, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Fit des finalen Modells
 EPBvalidation <- readRDS("EPBvalidation.rds") 
-
+final.lasso <- readRDS("final_lasso.rds")
 
 lasso.fit <- fit(final.lasso, data = EPBtraining)
 
@@ -742,18 +856,70 @@ saveRDS(lasso.pred, "lasso_pred.rds")
 
 ```{r tab-metrics-lasso-regression, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: tab-metrics-lasso-regression
-#| tab.cap: Metriken der Lasso Regression
+#| tab.cap: Metriken der Lasso Regression nach Tuning für ROC-AUC
 
 lasso.pred <- readRDS("lasso_pred.rds")
 
 # Calculate metrics
-results <- bind_rows(
+ft <- bind_rows(
   roc_auc(data = lasso.pred, truth = EPKlassifizierung, .pred_unauffällig),
   accuracy(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  kap(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
   sensitivity(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
   specificity(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
   ppv(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
-  npv(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class)
-) |> flextable()
-results
+  npv(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  f_meas(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class)
+) |> 
+  mutate(
+    metric = .metric,
+    estimate = round(.estimate, 2)
+  ) |>
+  select(metric, estimate) |>
+  flextable()
+ft
+```
+
+#### Fit und Vorhersagen mit der Lasso-Regression nach Tuning für NPV {.unnumbered}
+```{r fit-lasso-regression-npv, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Fit des finalen Modells
+EPBvalidation <- readRDS("EPBvalidation.rds") 
+final.lasso.npv <- readRDS("final_lasso_npv.rds")
+
+lasso.fit <- fit(final.lasso.npv, data = EPBtraining)
+
+saveRDS(lasso.fit, "lasso_fit_npv.rds")
+
+# Vorhersagen
+lasso.pred <- predict(lasso.fit, new_data = EPBvalidation, type = "prob") |> 
+   bind_cols(predict(lasso.fit, new_data = EPBvalidation, type = "class")) |>
+   bind_cols(EPBvalidation)
+saveRDS(lasso.pred, "lasso_pred_npv.rds")
+```
+
+
+```{r tab-metrics-lasso-regression-npv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-lasso-regression-npv
+#| tab.cap: Metriken der Lasso Regression nach Tuning für NPv
+
+lasso.pred <- readRDS("lasso_pred_npv.rds")
+
+# Calculate metrics
+ft <- bind_rows(
+  roc_auc(data = lasso.pred, truth = EPKlassifizierung, .pred_unauffällig),
+  accuracy(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  kap(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  sensitivity(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  specificity(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  ppv(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  npv(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class),
+  f_meas(data = lasso.pred, truth = EPKlassifizierung, estimate = .pred_class)
+) |> 
+  mutate(
+    metric = .metric,
+    estimate = round(.estimate, 2)
+  ) |>
+  select(metric, estimate) |>
+  flextable()
+ft
 ```
