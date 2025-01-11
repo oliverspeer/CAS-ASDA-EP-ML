@@ -1013,6 +1013,9 @@ saveRDS(EPcsv.uni, "EPcsv.uni.rds")
 ```
 
 
+
+
+
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-class_distribution
 #| fig-cap: Verteilung der Klassifizierungen
@@ -1041,7 +1044,30 @@ ft
 
 ```
   
+```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE}
+# 24-01-10 neue cluster Zuordnung
+EPcsv.km.unauf  <-  EPcsv1 |> 
+  select(ID, Bef.EP, Bef.ImFix, Bef.ImFix_cleaned, cluster3) |>
+  mutate(
+    Klassifizierung = case_when(
+      grepl("unauffällig", Bef.ImFix_cleaned, ignore.case = T) ~ "unauffällig",
+      cluster3 == 1 ~ "MGradient",
+      #cluster3 == 2 ~ "unauffällig",
+      cluster3 == 3 ~ "suspicous"
+    )|> 
+  as.factor()
+  )
 
+ft <- EPcsv.km.unauf |> 
+  count(Klassifizierung) |> 
+  flextable() |>
+  width(j = 1, width = 3.5)
+ft
+
+# dieser Ansatz verbessert die Zuordnung der tatsächlich unauffälligen Befunde, 
+#aber es bringt die Gruppe nicht eindeutig formulierter Befunde mit "NA" hervor, 
+# zBsp: "keine Veränderung zum Vorbefund", "Bande in Schwere und leichte Kette"
+```
 
 
 ### Pathologisches Chromatogramm
