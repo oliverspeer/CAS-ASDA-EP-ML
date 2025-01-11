@@ -24,8 +24,13 @@ Dieses Quarto-Book beinhaltet die Kapitel des CRISP-DM-Prozesses. In der vorlieg
 **toDo Liste:**
 `r Sys.Date()`
 
+1. prio: Regression
+
+2. Prio: confusion matrix
 
 - Data Preparation Simpsons versus trapez bei AUC Berechnung beschreiben, vielleicht Tabelle und Graphik zeigen die Simpson und  Trapez vergleicht
+
+- smoothspline prediction plot anschauen und zeigen.
 
 - Data Preparation: Vergleich Tri-Gramme vs Uni-Gramme. Entscheid Unigramme für kmeans da ansonste Matrix zu sparse beschreiben
 
