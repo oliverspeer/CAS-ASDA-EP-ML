@@ -3,8 +3,11 @@ author: "Oliver Speer"
 date: "10.06.2024"
 ---
 
+
+
 ::::: columns
 ::: {.column width="50%"}
+![ ](zlm.jpeg){width=40%}
 :::
 
 ::: {.column width="50%"}
@@ -14,19 +17,14 @@ cat("Version:\n",format(file.info("BusinessUnderstanding.qmd")$mtime,"%d. %B %Y"
 :::
 :::::
 
- 
-<!-- ![ ](zlm.jpeg){width=45%} -->
 
 # Vorwort {.unnumbered}
 
-Dieses Quarto-Book beinhaltet die Kapitel des CRISP-DM-Prozesses. In der vorliegenden Version ist im wesentlichen jedoch nur das Kapitel "Business Understanding" ausformuliert. Dieses dient als Abriss (Abgabe 20.10.24) für das gesamte Auswertungskonzept (Präsentation KW2 / KW3 2025). 
+Dieses Quarto-Book beinhaltet die Kapitel des CRISP-DM-Prozesses, die zur Erstellung von Modellen für die automatisierte Zuordnung von Protein-Elektrophorese-Chromatogrammen zu den Klassen "unauffällig" oder "pathologisch" führen.
 
 **toDo Liste:**
 `r Sys.Date()`
 
-1. prio: Regression
-
-2. Prio: confusion matrix
 
 - Data Preparation Simpsons versus trapez bei AUC Berechnung beschreiben, vielleicht Tabelle und Graphik zeigen die Simpson und  Trapez vergleicht
 
@@ -37,10 +35,8 @@ Dieses Quarto-Book beinhaltet die Kapitel des CRISP-DM-Prozesses. In der vorlieg
 
 
 
-** Fragen **
-- Normalisierung der Features?
-- Wie bekomme ich heraus wie gut ein Modell für eine Klasse ist?
-- Noch einfacher: "unauffällig" und "andere"
+
+
 
 
 
