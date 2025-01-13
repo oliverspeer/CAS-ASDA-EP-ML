@@ -5,6 +5,7 @@ date: "10.06.2024"
 
 ::::: columns
 ::: {.column width="50%"}
+![ ](zlm.jpeg){width=40%}
 :::
 
 ::: {.column width="50%"}
@@ -22,7 +23,7 @@ Das Zentrum für Labormedizin (ZLM) ist der öffentliche & zentrale Versorger vo
 
 In der Klinischen Chemie arbeiten 14 Mitarbeitende. Sie führen rund 3Mio Analysen jährlich im hochautomatisierten Core-Labor und in der handarbeits-intensiven Spezial-Chemie durch. Die Spezial-Chemie ist noch relativ wenig automatisiert, ist jedoch mit einem überdurchschnittlichem Wachstum (5-8% jährlich) konfrontiert, welches den schnellen Fortschritt in den diagnostischen und therapeutischen Möglichkeiten in der Medizin, aber auch das zunehmende Alter und somit zunehmende Komplexität der Erkrankungen in der Bevölkerung wiederspiegelt.
 
-Mit rund 4100 Aufträgen jährlich stellen die Protein-Elektrophoresen (EP) (siehe @fig-epumsatz) einen wesentlicher Anteil der täglichen Routine-Arbeit in der Spezial-Chemie. Mit deren technisch operativen Durchführung der Interpretation der Resulate werden überproportional viel Arbeitszeit verwendet.
+Mit annähernd 5000 Aufträgen jährlich stellen die Protein-Elektrophoresen (EP) (siehe @fig-epumsatz) einen wesentlicher Anteil der täglichen Routine-Arbeit in der Spezial-Chemie. Mit deren technisch operativen Durchführung der Interpretation der Resulate werden überproportional viel Arbeitszeit verwendet.
 
 ```{r, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
 
@@ -144,7 +145,7 @@ db <- dbConnect(SQLite(), dbname = db.wd)
                           sec.axis = sec_axis(~. /scaling.factor, name = "Anzahl Aufträge"))
     
 # disconnect from database
-# dbDisconnect(db)
+dbDisconnect(db)
 ```
 
 ```{r, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
@@ -197,6 +198,7 @@ Da die Mehrheit der Chromatogramme normal (= unauffällig) sind, wäre es eine w
 ## Erfolgskriterien quantifizieren {.justify}
 
 -   80% der normalen Protein-Elektrophoresen werden von einem Model automatisiert korrekt interpretiert
+-   0% der pathologischen Protein-Elektrophoresen werden von einem Model als normal klassifiziert
 -   Alle in diesem Prozess beteiligten Mitarbeitenden sind bis Ende 2025 geschult und wenden das Model an
 
 ## Bewertung der Situation {.justify}
@@ -229,11 +231,22 @@ Diese heterogene Situation beim Wissens- und Erfahrungsstand des Mitarbeitenden 
 Die Chromatogramm-Interpretationen sind zusammen mit den Patientendaten wie Geschlecht, Geburtsdatum, anderen Laborwerten konsistent seit 1995 im LIS vorhanden. Zugänglich via SQL.
 Chromatogramm-Daten und Patienten-Daten sind über die eineindeutige Tagesnummer des jeweilgen Auftrags verknüpft.
 
--   Anforderungen [**folgt**]{style="color:#00008B"}
+**Anforderungen**  
 
--   Annahmen [**folgt**]{style="color:#00008B"}
+    -   80% der normalen Protein-Elektrophoresen werden von einem Model automatisiert korrekt interpretiert
+    -   0% der pathologischen Protein-Elektrophoresen werden von einem Model als normal klassifiziert
+    -   Nach verschiedenen Publikationen wird für ML-Projekte im diagnostischen Bereich die Ground-Truth mit einer anderen Messmethode definiert. Z. Bsp. ML-Modell für die Interpretation von EP-Chromatogrammen wird mit der Klassifizierung basierend auf Immunfixationen oder Immuno-Typing trainiert @elfertExpertlevelDetectionMproteins2024.
+    -   Dokumentierte Übernahme des Modells in die Produktion entsprechend dem ISO 15198 akkreditierten Prozess
 
--   Beschränkungen [**folgt**]{style="color:#00008B"}
+**Annahmen**  
+
+- bisher keine relevanten
+
+**Beschränkungen**  
+
+-   Patientendaten dürfen das System nicht verlassen. D.h. keine Speicherung/Weitergabe an Clouds, Plattformen, AI-Modelle
+
+**Risiken**  
 
 -   Risiken 1: Textbaustein nur für normale = unaufällige EP-Chromatogramme vorhanden. Pathologische EP-Chromatogramme werden individuell interpretiert und dokumentiert. Hier sehe ich das Risiko, dass aus den vorhandenen Text/String-Daten keine eindeutigen Muster für pathologische Interpretationen modelliert werden können. *Massnahme:* ?? Clustering von String-Daten ?? Mustererkennung?? RandomForrest um aus string-Daten unauffällig vs pathologisch vorher zu sagen?? Würde es helfen, andere Labordaten (IgG, IEF, CBC) heranzuziehen??
 
@@ -242,26 +255,25 @@ Chromatogramm-Daten und Patienten-Daten sind über die eineindeutige Tagesnummer
 ## Bestimmung von Data-Mining Zielen {.justify}
 
 -   Alle bisher aufgezeichneten Protein-Elektrophoese-Chromatogramme sind als x-y-Koordinaten gespeichert  
-[aber wie, in welchem Format?]{style="color:#00008B;font-weight:bold"}   
 -   Weitere quantitative Merkmale der Chromatogramme, wie z Bsp Segmente, Peakhöhen (peakhight), Peakflächen (area under the curve), Peakpositionen, Steigungswerte (slope) und deren Änderung (erste und zweite Ableitung) werden neu berechnet und ebenfalls gespeichert  
 -   Die dazughörigen Interpretationen sind als Texte im selben dataframe gespeichert
--   Die dazugehörigen Patientendaten sind im selben dataframe gespeichert  
--   Alle diese Daten, welche für die Entwicklung des Models verwendet werden sind der Einfachheit halber und zur Dokumentation in einer separaten SQLite- Datenbank gespeichert
+-   **Optional:** Die dazugehörigen Patientendaten sind im selben dataframe gespeichert  
+-   **Optional:** Alle diese Daten, welche für die Entwicklung des Models verwendet werden sind der Einfachheit halber und zur Dokumentation in einer separaten SQLite- Datenbank gespeichert
 -   verschiedene Datensets sind generiert:  
-    -   Trainingsdatenset: 70% der Daten  
-    -   Validierungsdatenset: 30% der Daten   
-    -   Datenset für Test der R-codes: 100 Datensätze vom TRainingsdatenset
-    -   Testdatenset: Daten nach dem aktuellen Datum des vorliegenden Datensatzes (15.06.2024)
+    -   Trainingsdatenset:60% der Daten  
+    -   Validierungsdatenset: 20% der Daten   
+    -   Datenset für Test der R-codes: 100 Datensätze vom Trainingsdatenset
+    -   **Optional** weiteres Testdatenset: Daten, welche ab dem 16.06.2024 bis heute aufgezeichnet wurden
 -   Für die Zielvariable sind 3 Kategorien festgelegt:  
-    -   normal  
-    -   pathologisch  
+    -   normal (unauffällig)  
+    -   pathologisch (M-Protein) 
     -   unklar   
 -   Als oberste Priorität ist ein Model mit random forrest entwickelt, welches die normalen Chromatogramme von den pathologischen Chromatogrammen unterscheiden kann
--   Das Model ist so entwickelt, dass es die normalen Chromatogramme mit einer Genauigkeit von min 90% klassifiziert werden
+-   Das Model ist so entwickelt, dass es die normalen Chromatogramme mit einer Genauigkeit von min 80% klassifiziert werden
 -   mit Principal Component Analysis (PCA) sind die wichtigsten Variablen bzw. Merkmale des gesamten Datensatzes identifiziert. Eine Reduktion der Dimensionen ist durchgeführt.   
 -   Die Interaktionen & Colinearitäten zwischen den wichtigsten Prädiktoren sind untersucht und berücksichtigt
 -   Mit diesen Prädiktoren ist ein logistisches Regressions-Model entwickelt, welches die normalen Chromatogramme von den pathologischen Chromatogrammen mit einer Genauigkeit von min 90% unterscheiden kann  
-[glm, gam, XGBoost?]{style="color:#00008B;font-weight:bold"}
+
  
 
 ## Projektplan {.justify}
