@@ -5,6 +5,7 @@ date: "10.12.2024"
 
 ::::: columns
 ::: {.column width="50%"}
+![ ](zlm.jpeg){width=40%}
 :::
 
 ::: {.column width="50%"}
@@ -17,17 +18,19 @@ cat("Version:\n",format(file.info("DataPreparation.qmd")$mtime,"%d. %B %Y"))
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
 source("StartUp.R")
 StartUpRoutine()
+dbDisconnect(con)
+
 ```
 
 # Data Preparation {.unnumbered}
 
 
-## Auswahl der Daten: Auswahl der relevanten Elemente und Merkmale {#var_selection .justify}
+<!-- ## Auswahl der Daten: Auswahl der relevanten Elemente und Merkmale {#var_selection .justify} -->
 
 
 
 
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE}
 library(dagitty)
 dag <- dagitty('dag {
   age -> gammopathy
@@ -66,7 +69,10 @@ adjustmentSets(dag, exposure = "age", outcome = "gammopathy")
 
 
 
-## Bereinigen der Daten {.justify}
+## Bereinigen der Daten {.justify}  
+
+### Bereinigen der Chromatogramm-Daten {.justify}
+
 ```{r read csv, echo=T, message=FALSE, warning=FALSE}
 # Einlesen der Daten
 
@@ -96,9 +102,11 @@ EPcsv1 <- EPcsv[!is.na(EPcsv$curve)&!is.na(EPcsv$Bef.ImFix),] |>
 - Von `r sum(grepl("^folgt\\b", EPcsv$Bef.ImFix, ignore.case = TRUE))`  iFix-Aufträgen, die auf "folgt" stehen, wurden `r sum(grepl("^folgt\\b", EPcsv$Bef.ImFix, ignore.case = TRUE)) - sum(grepl("^folgt\\b", EPcsv1$Bef.ImFix, ignore.case = TRUE))`   iFix-Befunde entfernt. 
 
 
+### Bereinigen der Befund-Texte {.justify}
+
 ::: {.panel-tabset}
 
-### Bereinigung der Befundtexte
+### Bereinigung der iFix-Befundtexte
 Wie im Kapitel "Data Understanding" beschrieben, werden die iFix-Befundtexte aufbereitet. Dazu werden Schreibfehler, Synonyme, Satzzeichen, Gross- und Kleinschreibung und Stopwörter bereinigt.
 In den Tabsets werden die Stopwörterlisten angezeigt.  
 - Entfernen der Klammern, Zahlen, Satzzeichen, Gross- und Kleinschreibung, Stopwörter und überflüssiger Leerzeichen.   
@@ -174,7 +182,7 @@ stopwords.olli.col <- paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\
 ```
 
 
-### Bereinigte Befundtexte {.justify}
+### Bereinigte iFix-Befundtexte {.justify}
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
@@ -182,12 +190,12 @@ EPcsv1 <- EPcsv1 |>
   mutate(
     Bef.ImFix_cleaned = gsub("\\([^)]*\\)", "", Bef.ImFix),
     Bef.ImFix_cleaned = gsub("[0-9]+", "", Bef.ImFix_cleaned),
-    #Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, monate, ""),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, monate, ""),
     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "[[:punct:]]", " "),
     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, " +", " "),
     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "°", ""),    
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\b(mono)?klonale?n?s? Proteine?n?s?\\b", "MProtein"),
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\bM Proteine?n?s?\\b", "MProtein"),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\b(mono)?klonale?n?s? Proteine?n?s?\\b", "M-Protein"),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\bM Proteine?n?s?\\b", "M-Protein"),
     Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned),
     Bef.ImFix_cleaned = tolower(Bef.ImFix_cleaned),
     Bef.ImFix_cleaned = gsub(stopwords.olli.col, "", Bef.ImFix_cleaned),
@@ -247,7 +255,7 @@ html_output
 
 :::
 
-Nach dem Bereiningen der Befundtexte werden die Rechtschreibfehler bestimmter Key-Wörter, die evtl zur Klassifizierung dienen, korrigiert. 
+Nach dem Bereiningen der iFix-Befundtexte werden die Rechtschreibfehler bestimmter Key-Wörter, die evtl zur Klassifizierung dienen, korrigiert. 
 
 ::: {.panel-tabset}
 
@@ -645,7 +653,16 @@ Für das kommende Clustering wären Tri-Gramme zwar von Interesse, jedoch hat es
 # Zeilen mit Bef.ImFix_cleaned = "" entfernen
 EPcsv1 <- EPcsv1 |> 
   filter(Bef.ImFix_cleaned != "")
+#--------------------------------------------------------------------------------
+# speichern des EPcsv1 -Stopwörtern enhalten -Interpunktion enthalten, Gruss-Kleinschreibung enthalten. Speichern der Spalten ID und Bef.ImFix_cleaned für GPT-4o
+EPcsv_gpt <- EPcsv1|> 
+  mutate(BefImFix = Bef.ImFix_cleaned) |>
+  select(ID, BefImFix)
+saveRDS(EPcsv_gpt, "EPcsv_gpt.rds")
 
+
+write.csv(EPcsv_gpt, "EP.csv")
+#-------------------------------------------------------------------------------
 EPcsv3 <- EPcsv1|> 
   unnest_tokens(trigram, Bef.ImFix_cleaned, token = "ngrams", n = 3, to_lower =TRUE, drop = FALSE)
 
@@ -813,9 +830,8 @@ EPcsv1 <- EPcsv1 |>
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-3cluster in wordcloud
-#| fig-cap: 3 Cluster - Wortwolken
-#| 
+
+
 EPcsv1 <- readRDS("dev.df1.rds")
 
 library(wordcloud)
@@ -831,23 +847,27 @@ cluster3.ngrams <- EPcsv1 |>
 
 # Wortwolke pro Cluster
 #par(mfrow=c(2,2))
-set.seed(5173)
-cluster3.ngrams |> 
-  filter(cluster3 == 1)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 20, colors = brewer.pal(8, "Dark2")))
-
-cluster3.ngrams |> 
-  filter(cluster3 == 2)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-
-cluster3.ngrams |> 
-  filter(cluster3 == 3)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
+# set.seed(5173)
+# cluster3.ngrams |> 
+#   filter(cluster3 == 1)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 20, colors = brewer.pal(8, "Dark2")))
+# 
+# cluster3.ngrams |> 
+#   filter(cluster3 == 2)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
+# 
+# cluster3.ngrams |> 
+#   filter(cluster3 == 3)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
 
 
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-3cluster in barplot
+#| fig-cap: 3 Cluster - Barplot
+
+
 cluster3.ngrams |> 
   group_by(cluster3) |> 
   slice_max(order_by = frequency, n = 10) |> 
@@ -866,8 +886,7 @@ cluster3.ngrams |>
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-4cluster in wordcloud
-#| fig-cap: 4 Cluster - Wortwolken
+
 
 library(wordcloud)
 cluster4.ngrams <- EPcsv1 |> 
@@ -878,25 +897,29 @@ cluster4.ngrams <- EPcsv1 |>
 
 # Wortwolke pro Cluster
 #par(mfrow=c(2,2))
-set.seed(8173)
-cluster4.ngrams |> 
-  filter(cluster4 == 1)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2")))
-
-cluster4.ngrams |> 
-  filter(cluster4 == 2)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-
-cluster4.ngrams |> 
-  filter(cluster4 == 3)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-
-cluster4.ngrams |> 
-  filter(cluster4 == 4)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
+# set.seed(8173)
+# cluster4.ngrams |> 
+#   filter(cluster4 == 1)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2")))
+# 
+# cluster4.ngrams |> 
+#   filter(cluster4 == 2)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
+# 
+# cluster4.ngrams |> 
+#   filter(cluster4 == 3)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
+# 
+# cluster4.ngrams |> 
+#   filter(cluster4 == 4)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-4cluster in barplot
+#| fig-cap: 4 Cluster - Barplot
+
+
 cluster4.ngrams |> 
   group_by(cluster4) |> 
   slice_max(order_by = frequency, n = 10) |> 
@@ -912,6 +935,7 @@ cluster4.ngrams |>
   theme_minimal()
 
 ```
+
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-5cluster in wordcloud
 #| fig-cap: 5 Cluster - Wortwolken
@@ -925,30 +949,34 @@ cluster5.ngrams <- EPcsv1 |>
 
 # Wortwolke pro Cluster
 #par(mfrow=c(2,2))
-set.seed(173)
-cluster5.ngrams |> 
-  filter(cluster5 == 1)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 30, colors = brewer.pal(8, "Dark2")))
-
-cluster5.ngrams |> 
-  filter(cluster5 == 2)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2")))
-
-cluster5.ngrams |> 
-  filter(cluster5 == 3)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-
-cluster5.ngrams |> 
-  filter(cluster5 == 4)  |> 
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-
-cluster5.ngrams |> 
-  filter(cluster5 == 5)  |> 
-  arrange(desc(frequency)) |>
-  with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2")))
+# set.seed(173)
+# cluster5.ngrams |> 
+#   filter(cluster5 == 1)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 30, colors = brewer.pal(8, "Dark2")))
+# 
+# cluster5.ngrams |> 
+#   filter(cluster5 == 2)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2")))
+# 
+# cluster5.ngrams |> 
+#   filter(cluster5 == 3)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
+# 
+# cluster5.ngrams |> 
+#   filter(cluster5 == 4)  |> 
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
+# 
+# cluster5.ngrams |> 
+#   filter(cluster5 == 5)  |> 
+#   arrange(desc(frequency)) |>
+#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2")))
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-5cluster in barplot
+#| fig-cap: 5 Cluster - Barplot
+
+
 cluster5.ngrams |> 
   group_by(cluster5) |> 
   slice_max(order_by = frequency, n = 4) |> 
@@ -1036,6 +1064,8 @@ EPcsv1 |>
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: tbl-class_distribution
 #| tbl-cap: Verteilung der Klassifizierungen
+
+
 ft <- EPcsv1 |> 
   count(Klassifizierung) |> 
   flextable() |>
@@ -1045,6 +1075,8 @@ ft
 ```
   
 ```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE}
+
+
 # 24-01-10 neue cluster Zuordnung
 EPcsv.km.unauf  <-  EPcsv1 |> 
   select(ID, Bef.EP, Bef.ImFix, Bef.ImFix_cleaned, cluster3) |>
@@ -1068,12 +1100,15 @@ ft
 #aber es bringt die Gruppe nicht eindeutig formulierter Befunde mit "NA" hervor, 
 # zBsp: "keine Veränderung zum Vorbefund", "Bande in Schwere und leichte Kette"
 ```
+<br>
 
+<br>
 
-### Pathologisches Chromatogramm
+### Erstellen der Features aus den Chromatogrammen {.justify}
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-peak-patho
+#| fig-cap: Pathologisches Chromatogramm mit detektierten Peaks
 
 library(pracma)
 
@@ -1099,7 +1134,7 @@ dat <- dat[dat$decimal.values < 10000,]
 peaks <- findpeaks(dat$decimal.values, npeaks = 15, nups = 1, ndowns = 0, minpeakheight = 80)
 
 
-plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "EP Chromatogramm mit detektierten Peaks")
+plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = " ")
 points(dat$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
 abline(v = dat$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks
 abline(v = dat$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks
@@ -1241,7 +1276,7 @@ Im folgenden werden die Steigungen m, zweite Ableitungen fdd und die Flächen AU
 
 ### Area Under the Curve (AUC)
 
-Die wichtigen Peaks für die Beurteilung einer Gammopathie sind die Peaks beta1, beta2, und gamma. Für diesen Bereicht des Chromatogramms werden im folgenden die Flächen zwischen den jeweils 3 benachbarten Messpunkten nach Simpson berechnet.
+Für alle Messpunkte des Chromatogramms werden im folgenden die Flächen zwischen den jeweils 3 benachbarten Messpunkten nach Simpson berechnet.
 
 ```{r, message=FALSE, warning=FALSE}
 #| label: fig-betagamma
@@ -1308,7 +1343,7 @@ dat$AUC[is.na(dat$AUC)] <- 0
 ```
 
 
-### Steigungen vor den Peaks
+### Steigungen (m)
 Adäquat wird zwischen diesen Punktepaaren auch die Steigung berechnet
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # calculate the slopes between the points 160 to 300
@@ -1323,7 +1358,7 @@ dat$slopes[is.na(dat$slopes)] <- 0
 
 ```
 
-### zweite Ableitung vor den Peaks 
+### zweite Ableitungen (fdd) 
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # calculate the second derivatives 
 
@@ -1647,8 +1682,10 @@ Daher wähle ich zunächste die Signalhöhen (EP.y), die zugehörigen Steigungen
 
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Auswahl der relevanten Features
-# Subset des DataFrames für die Modellierung
+# Subsets des DataFrames dev.df1 für die Modellierungen
 # dev.df1 <- readRDS("dev_df1.rds")
+
+# für RFII und logistische Regressionen--------------------------------------------
 dev.sub.EP <- dev.df1 |> 
   select( ID, 
           EPKlassifizierung, 
@@ -1660,6 +1697,7 @@ dev.sub.EP <- dev.df1 |>
 
 saveRDS(dev.sub.EP, "dev_sub_EP.rds")
 
+# ohne Verwendung---------------------------------------------------------------
 dev.sub.EP.mfdd <- dev.df1 |> 
   select( ID, 
           EPKlassifizierung, 
@@ -1670,6 +1708,27 @@ dev.sub.EP.mfdd <- dev.df1 |>
           )
 
 saveRDS(dev.sub.EP.mfdd, "dev_sub_EP_mfdd.rds")
+
+# mit allen features für RFIII--------------------------------------------------
+dev.sub.EP.all <- dev.df1 |> 
+  select( ID, 
+          EPKlassifizierung, 
+          # EP.y150:EP.y300, 
+          m150:m300, 
+          fdd150:fdd300, 
+          AUC150:AUC300
+          )
+
+saveRDS(dev.sub.EP.all, "dev_sub_EP_all.rds")
+
+# für GPT-4o--------------------------------------------------------------------
+dev.sub.EP.GPT <- dev.df1 |> 
+  select( ID, 
+          Bef.ImFix
+          )
+
+# write as csv
+write.csv(dev.sub.EP.GPT, "dev_sub_EP_GPT.csv")
 
 ```
 
@@ -1710,3 +1769,157 @@ EPB.split
 
 
 ```
+
+### 11.01.2025 Aufteilen der EPKlassifikations-Daten in Trainings-, Validierungs- und Testdaten mit allen features {.justify}
+
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(tidymodels)
+
+
+# Aufteilen der Daten in 60% Trainings-, 20% Validierungs- und  20% Testdaten
+set.seed(8173)
+EPB.all.split <- dev.sub.EP.all |> 
+  initial_validation_split(prop = c(0.6, 0.2), strata = EPKlassifizierung)
+
+
+saveRDS(EPB.all.split, "EPB_all_split.rds")
+
+
+```
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+EPB.all.training <- training(EPB.all.split)
+saveRDS(EPB.all.training, "EPB_all_training.rds")
+
+EPB.all.validation <- validation(EPB.all.split)
+saveRDS(EPB.all.validation, "EPB_all_validation.rds")
+
+#EPtesting <- testing(EP.split)
+```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-EPB-all-split
+#| tbl-cap: Aufteilung der Daten in Trainings-, Validierungs- und Testdaten
+
+EPB.all.split <- readRDS("EPB_all_split.rds")
+EPB.all.split
+
+
+```
+
+### 12.01.2024 Neue Klassifizierung mit GPT-4o {.justify}
+Mit GTP-4o wurd eine neue Klassifizierung der EP-Befunde vorgenommen.
+Es gibt folgende Klassen:
+- unauffällig
+- M-Protein
+- suspecious
+- noInfo
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# einlesen der neuen Klassifizierung
+EP.gpt <- read_csv("EP_classified_cleaned.csv")
+dev.df1 <- readRDS("dev_df1.rds")
+
+# join der neuen Klassifizierung mit den EP-Daten
+dev.df1 <- dev.df1 |> 
+  left_join(select(EP.gpt, ID, Classification), by = "ID") 
+
+dev.df1$Classification <- as.factor(dev.df1$Classification) 
+
+saveRDS(dev.df1, "dev_df1.rds")
+```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-gpt-class-distribution
+#| fig-cap: Verteilung der gpt-Klassifizierungen
+
+EPcsv1 <- readRDS("~/CAS-EP&ML/dev_df1.rds")
+# Anzahl der 3 verschiedenen Klassifizierungen als Barplot und Tabelle
+EPcsv1 |> 
+  ggplot(aes(x = Classification, fill = Classification)) +
+  geom_bar() +
+  labs(title = " ",
+       x = "Klassifizierung",
+       y = "Anzahl") +
+  coord_flip() +
+  theme_minimal()
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-gpt-class_distribution
+#| tbl-cap: Verteilung der gpt-Klassifizierungen
+
+
+ft <- EPcsv1 |> 
+  count(Classification) |> 
+  flextable() |>
+  width(j = 1, width = 3.5)
+ft
+
+```
+
+
+
+### 12.01.2024 Auswahl der relevanten Features {.justify}
+y-Werte, m, fdd und AUC für die Modellierung
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Auswahl der relevanten Features
+# Subsets des DataFrames dev.df1 für die Modellierungen
+# dev.df1 <- readRDS("dev_df1.rds")
+
+dev.sub.GPT.all <- dev.df1 |> 
+  filter(Classification != "noInfo") |>
+  mutate(Classification = droplevels(Classification)) |>
+  select( ID, 
+          Classification, 
+          EP.y150:EP.y300, 
+          m150:m300, 
+          fdd150:fdd300, 
+          AUC150:AUC300
+          ) 
+
+saveRDS(dev.sub.GPT.all, "dev_sub_GPT_all.rds")
+
+```
+
+### 12.01.2025 Aufteilen der GPT-Klassifikations-Daten in Trainings-, Validierungs- und Testdaten mit allen features {.justify}
+
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(tidymodels)
+
+
+# Aufteilen der Daten in 60% Trainings-, 20% Validierungs- und  20% Testdaten
+set.seed(8173)
+GPT.split <- dev.sub.GPT.all |> 
+  initial_validation_split(prop = c(0.6, 0.2), strata = Classification)
+
+
+saveRDS(GPT.split, "GPT_split.rds")
+
+
+```
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+GPT.training <- training(GPT.split)
+saveRDS(GPT.training, "GPT_training.rds")
+
+GPT.validation <- validation(GPT.split)
+saveRDS(GPT.validation, "GPT_validation.rds")
+
+#GPTtesting <- testing(GPT.split)
+```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-GPT-split
+#| tbl-cap: Aufteilung der Daten in Trainings-, Validierungs- und Testdaten
+
+GPT.split <- readRDS("GPT_split.rds")
+GPT.split
+
+
+```
+
