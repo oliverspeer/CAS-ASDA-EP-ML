@@ -5,6 +5,7 @@ date: "10.12.2024"
 
 ::::: columns
 ::: {.column width="50%"}
+![ ](zlm.jpeg){width=40%}
 :::
 
 ::: {.column width="50%"}
@@ -17,12 +18,42 @@ cat("Version:\n",format(file.info("Deployment.qmd")$mtime,"%d. %B %Y"))
 
 
 # Deployment {.unnumbered}
-[**text & code folgt**]{style="#00008B"}
+[**- bis jetzt kein Modell vorhanden, dessen NPV hoch genug wäre**]{style="#00008B"}
+Outlook für die weitere Modellierung:  
+- Verbesserung der Klassifizierung der Befundtexte (GPT-4o API)
+- Hinzunahme von weiteren Features (quantitative Daten zu den einzelnen Fraktionen)
+- mehr Datensätze für das Training des Modells??
+- wenn es dann ein Modell gibt mit NPV > 0.95, dann könnte das folgende Deployment-Planung realisiert werden.
 
 ## Planen der Bereitstellung {.justify}
+- **Ziel**: Einbindung des Modells in der Produktionsumgebung
+
+- **zu klärende Fragen:**
+  - eignet sich R für eine Einbindung in das LIS? besser Python?
+  - wo werden die benötigten Features berechnet? im LIS oder in R / Python?
+  - wenn nicht LIS, lokal oder Server?
+  - wie genau wird das Modell bidirektional an das LIS angebunden? API? 
+  - wie genau sieht dann der Prozess aus? Vorschlag vom Modell gefolgt von Kontrolle & Befundung? und wann reicht Kontrolle durch BMA / wann Befundung durch Akademiker? 
+  
+Nach der Klärung dieser Fragen kann ein Projekt im regulären, nach ISO 15189 akkreditierten Prozesses, erstellt werden:
+
+- Einführung mit 
+  - Projektplan (beinhaltet alle beteiligten Personen und die Klärung der oben gestellten Fragen, Kommunikationsplan, Visum aller Beteiligter), 
+  - Validationsplan (beinhaltet Personen, Zeitplan, detailliertes Vorgehen, Methoden, Vorlagen, Speicherorte, Benötigte Mittel, Beurteilungskriterien etc.), 
+  - Validation  (Durchführung der Vergleiche bisheriger Prozess, neuer Prozess und Aufnahme/Speicherung der dabei entstehenden Daten und Resultate, evtl Kommunikation an Kunden),
+  - Validations-Auswertung und -Bericht (Beinhaltet alle Resultate, Schlussfolgerungen und Freigabe des akkad. Fachverantwortlichen für die Einführung des neuen Prozesses)
+  - Mutation (Beinhaltet Anpassung aller involvierter Dokumente, Anpassung aller Schnittstellen, Schulung aller beteiligter Mitarbeiter Labor und IT, Datum der Umstellung, Freigabe durch QM-Verantwortlichen) im regulären akkreditierten Prozess (ISO 15189) 
 
 ## Planen von Überwachung und Anpassung {.justify}
+Das Modell wäre dann eingebunden im produktiven Prozess.   
+Daher wird es regelmässig durch interne und externe QCs dokumentiert nach QUALAB überwacht. Falls diese QCs nicht mehr den Anforderungen entsprechen, wird dies den KVP-Prozess (Kontinuierlicher Verbesserungsprozess) anstossen, um das Modell zu verbessern, bzw Fehlverhalten zu analysieren.
+
 
 ## Erstellen eines Abschlussberichtes {.justify}
+Im Rahmen des Validationsprozesses wird es einen Validationsbericht geben müssen, der alle Schritte, Resultate und Schlussfolgerungen beinhaltet. Diesem wird dann auch das vorliegende Quarto beigefügt und als Grundlage dienen.  
+Der Validationsbericht wird dann in der Akkreditierungsdokumentation abgelegt.
 
 ## Abschliessende Projektbewertung {.justify}
+Im jährlichen Management-Review wird das Projekt und die Einführung des Modells bewertet und allfällige Verbesserungen oder Anpassungen beschlossen.
+
+
