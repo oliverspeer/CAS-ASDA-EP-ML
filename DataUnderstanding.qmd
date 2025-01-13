@@ -5,6 +5,7 @@ date: "10.12.2024"
 
 ::::: columns
 ::: {.column width="50%"}
+![ ](zlm.jpeg){width=40%}
 :::
 
 ::: {.column width="50%"}
@@ -111,6 +112,8 @@ dat$ID <- seq_len( nrow(dat) )
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-raw-chromatogram-plot-2700-2701
+#| fig-cap: "Rohdaten zweier Protein-Elektrophorese, die offensichtlich nicht nach der SOP aufgezeichnet wurden"
 # Vorbereitung der Daten für beide IDs
 fun.prep.EP.data <- function(id) {
   hex.string <- EPcsv$curve[EPcsv$ID == id]
@@ -159,7 +162,7 @@ par(mfrow = c(1, 1))
 Wie weiter unten zu erkennen sein wird, fallen beide Chromatogramme durch fast 20 fach höhere Signale auf, ausserdem fehlen die Sebia-typischen Marker Peaks (s.u.). Es ist nicht ganz klar, mit welchen Einstellungen am Gerät diese Chromatogramme aufgezeichnet wurden. Daher sollten sie bei der "Data Preparation" nicht berücksichtigt werden.
 
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
-#| label: fig-raw-chromatogram-plot
+#| label: fig-raw-chromatogram-plot-ID2
 #| fig-cap: "Rohdaten einer Protein-Elektrophorese"
 
 dat <- fun.prep.EP.data(2)
@@ -172,10 +175,9 @@ points(dat$ID, dat$decimal.values,
 Im Sebia Manual wird beschrieben, dass Markerpeaks an definierten Punkten eingesetzt werden um die verschiedenen Chromatogramm-Bereiche voneinander abzugrenzen. Diese sind in der oberen Abbildung als rote "Aussreisser" Punkte zu sehen.
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-
-#| label: fig-raw-chromatogram-plot
+#| label: fig-raw-chromatogram-plot-ID1675
 #| fig-cap: "Rohdaten einer pathologischen Protein-Elektrophorese mit Peakbezeichnungen"
-#| 
+ 
 #library(pracma)
 
 # Daten für ID 1675 vorbereiten
@@ -276,6 +278,9 @@ Wie aus der Übersicht der Chromatogramme ersichtlich wird, erscheinen die Peaks
 
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-skimPatientData
+#| tbl-cap: Datenüberblick
+
 query <- "SELECT *
             FROM MeasurementData
             WHERE Tagesnummer IN ('2019.01.01.4339',
@@ -345,6 +350,9 @@ Dies Klassifizierung der iFix-Befunde ist vermutlich nicht ganz sauber, es gibt 
 Nach Kleinschreibung, Entfernen von Satzzeichen, sowie Tokenisierung der Befundtexte ergibt sich folgende Häufigkeitsverteilung der Wörter in den iFix-Befundtexten:
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-EP-Befundtexte
+#| tbl-cap: Häufigkeitsverteilung der Wörter in den EP-Befundtexten
+
 # Tokenisierung der EP-Befundtexte
 library(tidytext)
 library(stringr)
@@ -445,6 +453,9 @@ html_output
 ##### Varianten des Wortes "unauffällig"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-EP-Befundtexte-unauffällig
+#| tbl-cap: Varianten des Wortes "unauffällig"
+
 # Berechnung der Levenshtein-Distanzen
 
 Bef.EP.freq |> 
@@ -465,6 +476,9 @@ Daher ist es im folgenden wichtig diese gut zu untersuchen.
 Nach Kleinschreibung, Entfernen von Satzzeichen, sowie Tokenisierung der Befundtexte ergibt sich folgende Häufigkeitsverteilung der Wörter in den iFix-Befundtexten:
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte
+#| tbl-cap: Häufigkeitsverteilung der Wörter in den iFix-Befundtexten
+
 # Tokenisierung der imFix-Befundtexte
 library(tidytext)
 library(stringr)
@@ -559,6 +573,9 @@ Offensichtlich gibt es in den Befundtexten Wort-Varianten und Tippfehler. Daher 
 ##### Varianten des Wortes "monoklonal"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-monoklonal
+#| tbl-cap: Varianten des Wortes "monoklonal"
+
 # Berechnung der Levenshtein-Distanzen
 Bef.ImFix.freq |> 
   mutate(Distanz = stringdist("monoklon", Bef.ImFix_cleaned, method = "lv")) |> 
@@ -570,6 +587,9 @@ Bef.ImFix.freq |>
 ##### Varianten des Wortes "M-Protein"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-M-Protein
+#| tbl-cap: Varianten des Wortes "M-Protein"
+
 # Berechnung der Levenshtein-Distanzen
 Bef.ImFix.freq |> 
   mutate(Distanz = stringdist("mprotein", Bef.ImFix_cleaned, method = "lv")) |> 
@@ -581,6 +601,10 @@ Bef.ImFix.freq |>
 ##### Varianten des Wortes "polyklonal"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-polyklonal
+#| tbl-cap: Varianten des Wortes "polyklonal"
+
+
 # Berechnung der Levenshtein-Distanzen
 Bef.ImFix.freq |> 
   mutate(Distanz = stringdist("polyklon", Bef.ImFix_cleaned, method = "lv")) |> 
@@ -591,6 +615,9 @@ Bef.ImFix.freq |>
 ##### Varianten des Wortes "akut-Phase"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-akut-Phase
+#| tbl-cap: Varianten des Wortes "akut-Phase"
+
 # Berechnung der Levenshtein-Distanzen
 Bef.ImFix.freq |> 
   mutate(Distanz = stringdist("akutphase", Bef.ImFix_cleaned, method = "lv")) |> 
@@ -602,6 +629,10 @@ Bef.ImFix.freq |>
 ##### Varianten des Wortes "immunreaktiv"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-immunreaktiv
+#| tbl-cap: Varianten des Wortes "immunreaktiv"
+
+
 # Berechnung der Levenshtein-Distanzen
 Bef.ImFix.freq |> 
   mutate(Distanz = stringdist("immunreaktiv", Bef.ImFix_cleaned, method = "lv")) |> 
@@ -613,6 +644,10 @@ Bef.ImFix.freq |>
 ##### Varianten des Wortes "nachweisbar"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-nachweisbar
+#| tbl-cap: Varianten des Wortes "nachweisbar"
+
+
 # Berechnung der Levenshtein-Distanzen
 
 Bef.ImFix.freq |> 
@@ -626,6 +661,10 @@ Bef.ImFix.freq |>
 ##### Varianten des Wortes "unauffällig"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-variationen-unauffällig
+#| tbl-cap: Varianten des Wortes "unauffällig"
+
+
 # Berechnung der Levenshtein-Distanzen
 
 Bef.ImFix.freq |> 
@@ -638,6 +677,10 @@ Bef.ImFix.freq |>
 ##### Varianten des Wortes "Veränderung"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Var-Veränderung
+#| tbl-cap: Varianten des Wortes "Veränderung"
+
+
 # Berechnung der Levenshtein-Distanzen
 
 Bef.ImFix.freq |> 
@@ -651,6 +694,10 @@ Bef.ImFix.freq |>
 ##### Varianten des Wortes "Vorbefund"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Var-Vorbefund
+#| tbl-cap: Varianten des Wortes "Vorbefund"
+
+
 # Berechnung der Levenshtein-Distanzen
 
 Bef.ImFix.freq |> 
@@ -663,6 +710,10 @@ Bef.ImFix.freq |>
 ##### Varianten des Wortes "entfernt"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Var-entfernt
+#| tbl-cap: Varianten des Wortes "entfernt"
+
+
 # Berechnung der Levenshtein-Distanzen
 
 Bef.ImFix.freq |> 
@@ -674,6 +725,10 @@ Bef.ImFix.freq |>
 
 ##### Varianten des Wortes "sistiert"
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Var-sistiert
+#| tbl-cap: Varianten des Wortes "sistiert"
+
+
 # Berechnung der Levenshtein-Distanzen
 
 Bef.ImFix.freq |> 
@@ -687,6 +742,7 @@ Bef.ImFix.freq |>
 Der Kontext der einzelenen Wörter ist wichtig. Z. Bsp. "kein M-Protein nachweisbar" ist ein anderer Kontext als "M-Protein nachweisbar". Daher ist es wichtig, dass diese Schlüsselwörter in ihrem Kontext betrachtet werden.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+
 library(tidytext)
 
 #Bef.ImFix.freq.ngram <- EPcsv |>
@@ -714,6 +770,8 @@ EPcsv2 <- EPcsv |>
 
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-kotext
+#| tbl-cap: Kontextanalyse in den iFix-Befundtexten
 #show the first 50 lines from EPcsv2, only the columns Bef.ImFix and Bef.ImFix_cleaned
 EPcsv2 |> 
   select(Bef.ImFix, word1, word2, word3) |> 
@@ -724,6 +782,8 @@ EPcsv2 |>
 Weiter werden die häufigsten n-Gramme in den Befundtexten untersucht:
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-ngram
+#| tbl-cap: Häufigkeitsverteilung der n-Gramme in den iFix-Befundtexten
 EPcsv2 |> 
    na.omit() |>
    count(word1, word2, word3, sort = TRUE) |> 
@@ -735,6 +795,8 @@ EPcsv2 |>
 Im weiteren werden Kombinationen mit dem Wort "nicht" & "ohne" untersucht:
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-nicht
+#| tbl-cap: Kombinationen mit "nicht" in den iFix-Befundtexten
 EPcsv2 |> 
    na.omit() |>
    mutate(distance = stringdist("nicht", word1, method = "lv")) |>
@@ -744,7 +806,13 @@ EPcsv2 |>
    head(20) |> 
    flextable()
 ```
+
+
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-ohne
+#| tbl-cap: Kombinationen mit "ohne" in den iFix-Befundtexten
+
+
 EPcsv2 |> 
    na.omit() |>
    mutate(distance = stringdist("ohne", word1, method = "lv")) |>
@@ -758,6 +826,10 @@ EPcsv2 |>
 Im weiteren werden Kombinationen mit den Wörtern "keine" & "kein" untersucht:
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-keine
+#| tbl-cap: Kombinationen mit "keine" in den iFix-Befundtexten
+
+
 EPcsv2 |> 
    na.omit() |>
    mutate(distance = stringdist(c("keine", "kein"), word1, method = "lv")) |>
@@ -771,6 +843,10 @@ EPcsv2 |>
 Kombinationen mit "unauffällig"
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-unauffällig
+#| tbl-cap: Kombinationen mit "unauffällig" in den iFix-Befundtexten
+
+
 EPcsv2 |> 
    na.omit() |>
    mutate(distance = stringdist("unauffällig", word1, method = "lv")) |>
@@ -784,6 +860,8 @@ EPcsv2 |>
 Es scheint auch informativ die Häufigkeiten der etwas bereinigten Befundtexte zu untersuchen:
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-Stoppwörter
+#| tbl-cap: Häufigkeitsverteilung der bereinigten iFix-Befundtexten zur Analyse von Stoppwörtern
 #Bef.ImFix.freq.ngram <- 
 EPcsv2 |> 
   count(Bef.ImFix_cleaned, sort = TRUE) |> 
@@ -846,6 +924,10 @@ EPcsv2 <- EPcsv |>
 Für die Analyse der Häufigkeiten der Befundtexte, werden die Stopwörter entfernt, es werden aber auch Synonyme zusammengefasst. Z.Bsp "monoklonal", "monoklonale Proteine", "monoklonalen Proteinen", "monoklonales Proteins", "M-Protein", "M-Proteins", etc werden zu "mprotein" zusammengefasst.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-iFix-Befundtexte-ohne-Stoppwörter
+#| tbl-cap: Häufigkeitsverteilung der bereinigten iFix-Befundtexten ohne Stoppwörter
+
+
 #Bef.ImFix.freq.ngram <- 
 EPcsv2 |> 
   count(Bef.ImFix_cleaned, sort = FALSE) |> 
@@ -1039,6 +1121,8 @@ Das wichtiste Wort um normale von auffälligen EP-Chromatogrammen durch die BEfu
 
 Anzahl der "unauffällig" in den EP- und iFix-Befunden
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-unauffällig-EPB-iFix
+#| tbl-cap: Anzahl der "unauffällig" in den EP- und iFix-Befunden
 # Anzahl der "unauffällig" in den EP- und iFix-Befunden
 library(dplyr)
 library(flextable)
@@ -1064,6 +1148,8 @@ EPcsv |>
 
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-Vergleich-EPB-iFix
+#| tbl-cap: Vergleich unauffälliger Befunde der EP- und iFix-Befundtexte
 library(dplyr)
 library(flextable)
 
@@ -1136,8 +1222,7 @@ html_output
 
 
 #### 06.01.2025 Zusammenfassung {.justify}
-Die EP-Befunde mit "unauffällig" scheinen konsistenter und einheitlicher als die iFix-Befundberichte mit "unauffällig" zu sein. Im zweiten random forest Model werde ich die Klassifizierung "unauffällig" und "auffällig" auf Basis der EP-Befunde durchführen.
-
+[Die EP-Befunde mit "unauffällig" scheinen konsistenter und einheitlicher als die iFix-Befundberichte mit "unauffällig" zu sein. Im zweiten random forest Model werde ich die Klassifizierung "unauffällig" und "auffällig" auf Basis der EP-Befunde durchführen.]{style="color:#00008B;font-weight:bold"}
 <!-- ### Chromatogramm Daten -->
 
 <!-- ```{r, echo=FALSE, message=FALSE, warning=FALSE} -->
