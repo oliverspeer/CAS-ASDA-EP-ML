@@ -12,14 +12,13 @@ book:
   author: "Oliver Speer"
   date: "10.03.2024"
   editor: visual
-  cover-image: zhaw.png
   repo-url: 'https://github.com/oliverspeer/CAS-ASDA-EP-ML.git'
   repo-branch: main
-  repo-actions: [edit]
+
 
   chapters:
     - index.qmd
-    - intro.qmd
+#    - intro.qmd
     
     - BusinessUnderstanding.qmd
     - DataUnderstanding.qmd
@@ -47,7 +46,7 @@ format:
     code-tools: true
     embed-resources: true
     toc: true
-    toc-depth: 3
+    toc-depth: 4
     toc-title: "Inhalt"
     
     
