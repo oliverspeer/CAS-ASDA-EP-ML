@@ -5,6 +5,7 @@ date: "10.12.2024"
 
 ::::: columns
 ::: {.column width="50%"}
+![ ](zlm.jpeg){width=40%}
 :::
 
 ::: {.column width="50%"}
@@ -26,6 +27,7 @@ dbDisconnect(con)
 # Evaluation {.unnumbered}
 
 ## Random Forrest I mit iFix Befund-Text-Klassifikation {.justify}
+Alle Features für den EP-Chromatogramm Bereich 150-300 und Klassifikation nach iFix-Befunden
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Daten einlesen
 #EPtraining <- readRDS("EPtraining.rds")
@@ -78,9 +80,12 @@ plan(sequential)
 saveRDS(rfI.res, "rfI_res.rds")
 ```
 
-### Metriken {.unnumbered}
+### Metriken {.justify}
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-rfI
+#| tbl-cap: Metriken des Random Forrest I
+
 
 rfI.res <- readRDS("rfI_res.rds")
 rfI.res |> 
@@ -96,12 +101,12 @@ rfI.res |>
 
 ```
 
-### Confusion Matrix {.unnumbered}
+### Confusion Matrix {.justify}
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-rfI-conf-mat
-#| fig.cap: Confusion Matrix des Random Forrest I
+#| fig-cap: Confusion Matrix des Random Forrest I
 
 #rfI.pred |> 
 rfI.res |> 
@@ -115,6 +120,8 @@ rfI.res |>
 
 
 ## Random Forrest II mit EP Befund-Text-Klassifikation für ROC-AUC getuned {.justify}
+Nur 2. Ableitungen für den EP-Chromatogramm Bereich 150-300 und Klassifikation nach EP-Befunden
+
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Daten einlesen
 #EPtraining <- readRDS("EPBtraining.rds")
@@ -171,7 +178,7 @@ saveRDS(rfII.res, "rfII_val_res.rds")
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: tab-metrics-rfII
-#| tab.cap: Metriken des Random Forrest II
+#| tbl-cap: Metriken des Random Forrest II
 rfII.res <- readRDS("rfII_val_res.rds")
 rfII.res |> 
   collect_metrics()|> 
@@ -185,13 +192,13 @@ rfII.res |>
 ```
 
 
-### Confusion Matrix {.unnumbered}
+### Confusion Matrix {.justify}
 
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-rfII-conf-mat
-#| fig.cap: Confusion Matrix des Random Forrest II
+#| fig-cap: Confusion Matrix des Random Forrest II
 rfII.res |> 
   collect_predictions() |> 
   conf_mat(truth = EPKlassifizierung, estimate = .pred_class) |> 
@@ -201,6 +208,8 @@ rfII.res |>
 
 
 ## Random Forrest II mit EP Befund-Text-Klassifikation für NPV getuned {.justify}
+Nur 2. Ableitungen für den EP-Chromatogramm Bereich 150-300 und Klassifikation nach EP-Befunden
+
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Daten einlesen
 #EPtraining <- readRDS("EPBtraining.rds")
@@ -220,9 +229,12 @@ rf.rec <-
 
 
 # read model
-final.rf.npv <- finalize_model(tune.spec, best.npv) |> 
-  set_engine("ranger", num.threads = 1)
+# final.rf.npv <- finalize_model(tune.spec, best.npv) |> 
+#   set_engine("ranger", num.threads = 1)
 
+# read model
+final.rf.npv <- readRDS("final_EPB_rf_npv.rds") |> 
+  set_engine("ranger", num.threads = 1)
 
 # workflow
 rfI.wf <- workflow() |>
@@ -257,7 +269,7 @@ saveRDS(rfII.npv.res, "rfII_npv_res.rds")
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: tab-metrics-rfII-npv
-#| tab.cap: Metriken des Random Forrest II für NPV
+#| tbl-cap: Metriken des Random Forrest II für NPV
 rfII.npv.res <- readRDS("rfII_npv_res.rds")
 rfII.npv.res |> 
   collect_metrics()|> 
@@ -271,34 +283,415 @@ rfII.npv.res |>
 ```
 
 
-### Confusion Matrix {.unnumbered}
+### Confusion Matrix {.justify}
 
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-rfII-npv-conf-mat-plot
-#| fig.cap: Confusion Matrix des Random Forrest II für NPV
+#| fig-cap: Confusion Matrix des Random Forrest II für NPV
 rfII.npv.res |> 
   collect_predictions() |>  
   conf_mat(truth = EPKlassifizierung, estimate = .pred_class) |> 
   autoplot(type = "heatmap")
 ```
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE}
 #| label: fig-rfII-npv-roc-curve-plot
-#| fig.cap: ROC Kurve des Random Forrest II für NPV
+#| fig-cap: ROC Kurve des Random Forrest II für NPV
 rfII.npv.res |> 
   collect_predictions() |>  
   roc_curve(truth = EPKlassifizierung, .pred_suspicous) |> 
   autoplot()
 ```
 
+## Random Forrest III mit EP Befund-Text-Klassifikation für AUC getuned {.justify}
+Features Steigung (m), 2. Ableitung und Fläche (AUC) für den EP-Chromatogramm Bereich 150-300 und Klassifikation nach EP-Befunden
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+#EPtraining <- readRDS("EPBtraining.rds")
+EPvalidation <- readRDS("EPB_all_validation.rds")
 
-## Logistische Rgression mit EP Befund-Text-Klassifikation für ROC-AUC getuned {.justify}
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+# recipe building
+rf.rec <- 
+  recipe(EPKlassifizierung ~ ., data = EPvalidation) |>
+  update_role(ID, new_role = "ID") 
+
+
+# cross validation data setting
+# set.seed(8173)
+# EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+
+
+
+# # read model
+# final.rf.npv <- finalize_model(tune.spec, best.npv) |> 
+#   set_engine("ranger", num.threads = 1)
+
+# read model
+final.rf.auc <- readRDS("final_EPB_all_rf.rds") |> 
+  set_engine("ranger", num.threads = 1)
+
+# workflow
+rfI.wf <- workflow() |>
+  add_recipe(rf.rec) |>
+  add_model(final.rf.auc)
+
+
+# start parallel processing
+library(future)
+plan(multisession, workers = 10)
+
+# fit model
+rfIII.auc.res <- 
+  rfI.wf |> 
+  fit_resamples(
+    resamples = EPfolds,
+    metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+    control = control_resamples(save_pred = TRUE, 
+                                allow_par = TRUE, 
+                                save_workflow = TRUE,
+                                parallel_over = "resamples"
+                                )
+  )
+
+
+
+plan(sequential)
+
+saveRDS(rfIII.auc.res, "rfIII_auc_res.rds")
+```
+
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: tab-metrics-log-regression
-#| tab.cap: Metriken der logistischen Regression
+#| label: tab-metrics-rfIII-auc
+#| tbl-cap: Metriken des Random Forrest III für AUC
+rf.res <- readRDS("rfIII_auc_res.rds")
+rf.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.justify}
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-rfIII-auc-conf-mat-plot
+#| fig-cap: Confusion Matrix des Random Forrest III für AUC
+rf.res |> 
+  collect_predictions() |>  
+  conf_mat(truth = EPKlassifizierung, estimate = .pred_class) |> 
+  autoplot(type = "heatmap")
+```
+
+
+## Random Forrest III mit EP Befund-Text-Klassifikation für NPV getuned {.justify}
+Features Steigung (m), 2. Ableitung und Fläche (AUC) für den EP-Chromatogramm Bereich 150-300 und Klassifikation nach EP-Befunden
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+#EPtraining <- readRDS("EPBtraining.rds")
+EPvalidation <- readRDS("EPB_all_validation.rds")
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+# recipe building
+rf.rec <- 
+  recipe(EPKlassifizierung ~ ., data = EPvalidation) |>
+  update_role(ID, new_role = "ID") 
+
+
+# cross validation data setting
+# set.seed(8173)
+# EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+
+
+
+# # read model
+# final.rf.npv <- finalize_model(tune.spec, best.npv) |> 
+#   set_engine("ranger", num.threads = 1)
+
+# read model
+final.rf <- readRDS("final_EPB_all_rf_npv.rds") |> 
+  set_engine("ranger", num.threads = 1)
+
+# workflow
+rf.wf <- workflow() |>
+  add_recipe(rf.rec) |>
+  add_model(final.rf)
+
+
+# start parallel processing
+library(future)
+plan(multisession, workers = 10)
+
+# fit model
+rf.res <- 
+  rf.wf |> 
+  fit_resamples(
+    resamples = EPfolds,
+    metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+    control = control_resamples(save_pred = TRUE, 
+                                allow_par = TRUE, 
+                                save_workflow = TRUE,
+                                parallel_over = "resamples"
+                                )
+  )
+
+
+
+plan(sequential)
+
+saveRDS(rf.res, "rfIII_npv_res.rds")
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-rfIII-npv
+#| tbl-cap: Metriken des Random Forrest III für NPV
+rf.res <- readRDS("rfIII_npv_res.rds")
+rf.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.justify}
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-rfIII-npv-conf-mat-plot
+#| fig-cap: Confusion Matrix des Random Forrest III für NPV
+rf.res |> 
+  collect_predictions() |>  
+  conf_mat(truth = EPKlassifizierung, estimate = .pred_class) |> 
+  autoplot(type = "heatmap")
+```
+
+
+
+
+
+## Random Forrest IV mit iFix gpt-Befund-Text-Klassifikation für AUC getuned {.justify}
+Features: y-Signalewerte,  Steigung (m), 2. Ableitung und Fläche (AUC) für den EP-Chromatogramm Bereich 150-300 und Klassifikation der iFix-Befunden mit gpt 4o.
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+#EPtraining <- readRDS("EPBtraining.rds")
+EPvalidation <- readRDS("GPT_validation.rds")
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+# recipe building
+rf.rec <- 
+  recipe(Classification ~ ., data = EPvalidation) |>
+  update_role(ID, new_role = "ID") 
+
+
+# cross validation data setting
+# set.seed(8173)
+# EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+
+
+
+# # read model
+# final.rf.npv <- finalize_model(tune.spec, best.npv) |> 
+#   set_engine("ranger", num.threads = 1)
+
+# read model
+final.rf.auc <- readRDS("final_GPT_rf_auc.rds") |> 
+  set_engine("ranger", num.threads = 1)
+
+# workflow
+rf.wf <- workflow() |>
+  add_recipe(rf.rec) |>
+  add_model(final.rf.auc)
+
+
+# start parallel processing
+library(future)
+plan(multisession, workers = 10)
+
+# fit model
+rf.auc.res <- 
+  rf.wf |> 
+  fit_resamples(
+    resamples = EPfolds,
+    metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+    control = control_resamples(save_pred = TRUE, 
+                                allow_par = TRUE, 
+                                save_workflow = TRUE,
+                                parallel_over = "resamples"
+                                )
+  )
+
+
+
+plan(sequential)
+
+saveRDS(rf.auc.res, "rf_GPT_auc_res.rds")
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-rfIV-auc
+#| tbl-cap: Metriken des Random Forrest IV für AUC
+rf.res <- readRDS("rf_GPT_auc_res.rds")
+rf.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.justify}
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-rfIV-auc-conf-mat-plot
+#| fig-cap: Confusion Matrix des Random Forrest IV für AUC
+rf.res |> 
+  collect_predictions() |>  
+  conf_mat(truth = Classification, estimate = .pred_class) |> 
+  autoplot(type = "heatmap")
+```
+
+
+## Random Forrest IV mit EP Befund-Text-Klassifikation für NPV getuned {.justify}
+Features Steigung (m), 2. Ableitung und Fläche (AUC) für den EP-Chromatogramm Bereich 150-300 und Klassifikation nach EP-Befunden
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+#EPtraining <- readRDS("EPBtraining.rds")
+EPvalidation <- readRDS("GPT_validation.rds")
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+# recipe building
+rf.rec <- 
+  recipe(Classification ~ ., data = EPvalidation) |>
+  update_role(ID, new_role = "ID") 
+
+
+# cross validation data setting
+# set.seed(8173)
+# EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+
+
+
+# # read model
+# final.rf.npv <- finalize_model(tune.spec, best.npv) |> 
+#   set_engine("ranger", num.threads = 1)
+
+# read model
+final.rf <- readRDS("final_GPT_rf_npv.rds") |> 
+  set_engine("ranger", num.threads = 1)
+
+# workflow
+rf.wf <- workflow() |>
+  add_recipe(rf.rec) |>
+  add_model(final.rf)
+
+
+# start parallel processing
+library(future)
+plan(multisession, workers = 10)
+
+# fit model
+rf.res <- 
+  rf.wf |> 
+  fit_resamples(
+    resamples = EPfolds,
+    metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+    control = control_resamples(save_pred = TRUE, 
+                                allow_par = TRUE, 
+                                save_workflow = TRUE,
+                                parallel_over = "resamples"
+                                )
+  )
+
+
+
+plan(sequential)
+
+saveRDS(rf.res, "rf_GPT_npv_res.rds")
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-rfIV-npv
+#| tbl-cap: Metriken des Random Forrest IV für NPV
+rf.res <- readRDS("rf_GPT_npv_res.rds")
+rf.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.justify}
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-rfIII-npv-conf-mat-plot
+#| fig-cap: Confusion Matrix des Random Forrest III für NPV
+rf.res |> 
+  collect_predictions() |>  
+  conf_mat(truth = Classification, estimate = .pred_class) |> 
+  autoplot(type = "heatmap")
+```
+
+
+
+
+
+
+
+
+
+## Logistische Rgression mit 2.Ableitungen & EP Befund-Text-Klassifikation für ROC-AUC getuned {.justify}
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-log-regression-roc
+#| tbl-cap: Metriken der logistischen Regression
 log.res <- readRDS("log_res.rds")
 log.res |> 
   collect_metrics()|> 
@@ -312,12 +705,12 @@ log.res |>
 ```
 
 
-### Confusion Matrix {.unnumbered}
+### Confusion Matrix {.justify}
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-log-conf-mat
-#| fig.cap: Confusion Matrix der logistischen Regression
+#| label: fig-log-conf-mat-roc
+#| fig-cap: Confusion Matrix der logistischen Regression
 log.res |> 
   collect_predictions() |> 
   conf_mat(truth = EPKlassifizierung, estimate = .pred_class)|> 
@@ -325,11 +718,11 @@ log.res |>
 ```
 
 
-## Logistische Rgression mit EP Befund-Text-Klassifikation für ROC-AUC getuned {.justify}
+## Logistische Regression mit 2.Ableitungen & EP Befund-Text-Klassifikation für ROC-AUC getuned {.justify}
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: tab-metrics-log-regression
-#| tab.cap: Metriken der logistischen Regression
+#| label: tab-metrics-log-regression-roc-all
+#| tbl-cap: Metriken der logistischen Regression mit allen fdd-Features
 log.res <- readRDS("log_res_all.rds")
 log.res |> 
   collect_metrics()|> 
@@ -343,19 +736,19 @@ log.res |>
 ```
 
 
-### Confusion Matrix {.unnumbered}
+### Confusion Matrix {.justify}
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-log-conf-mat
-#| fig.cap: Confusion Matrix der logistischen Regression
+#| label: fig-log-conf-mat-all
+#| fig-cap: Confusion Matrix der logistischen Regression
 log.res |> 
   collect_predictions() |> 
   conf_mat(truth = EPKlassifizierung, estimate = .pred_class)|> 
   autoplot(type = "heatmap")
 ```
 
-## Lasso Regression mit EP Befund-Text-Klassifikation für NPV getuned {.justify}
+## Lasso Regression mit 2.Ableitungen & EP Befund-Text-Klassifikation für NPV getuned {.justify}
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Daten einlesen
 EPBtraining <- readRDS("EPBtraining.rds")
@@ -384,7 +777,7 @@ lasso.rec <-
 
 
 # read model
-final.lasso <- readRDS("final_lasso.rds") |> 
+final.lasso.m <- readRDS("final_lasso.rds") |> 
   pull_workflow_spec() |>
   set_engine("glmnet", num.threads = 1)
 
@@ -392,7 +785,7 @@ final.lasso <- readRDS("final_lasso.rds") |>
 # workflow
 lasso.wf <- workflow() |>
   add_recipe(lasso.rec) |>
-  add_model(final.lasso)
+  add_model(final.lasso.m)
 
 
 # start parallel processing
@@ -420,6 +813,8 @@ saveRDS(lasso.res, "lasso_res.rds")
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-lasso
+#| tbl-cap: Metriken der Lasso Regression
 lasso.res <- readRDS("lasso_res.rds")
 lasso.res |> 
   collect_metrics()|> 
@@ -429,17 +824,18 @@ lasso.res |>
     sd = round(std_err, 3)
   ) |> 
   select(metric, mean, n, sd) |>
+  head(8) |>
   flextable()
 ```
 
 
-### Confusion Matrix {.unnumbered}
+### Confusion Matrix {.justify}
 
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-lasso-conf-mat
-#| fig.cap: Confusion Matrix der Lasso Regression
+#| fig-cap: Confusion Matrix der Lasso Regression
 lasso.res |> 
   collect_predictions() |> 
   conf_mat(truth = EPKlassifizierung, estimate = .pred_class) |> 
@@ -455,7 +851,7 @@ lasso.res |>
 <!-- ``` -->
 
 
-<!-- #### Fit und Vorhersagen mit der RFI {.unnumbered} -->
+<!-- #### Fit und Vorhersagen mit der RFI {.justify} -->
 <!-- ```{r fit-rfI, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
 <!-- # Fit des finalen Modells -->
 <!-- EPBvalidation <- readRDS("EPBvalidation.rds") -->
@@ -476,7 +872,7 @@ lasso.res |>
 
 <!-- ```{r tab-metrics-rfI-regression, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
 <!-- #| label: tab-metrics-rfI-regression -->
-<!-- #| tab.cap: Metriken der rfI Regression -->
+<!-- #| tbl-cap: Metriken der rfI Regression -->
 
 <!-- rfI.pred <- readRDS("rfI_pred.rds") -->
 
@@ -494,7 +890,7 @@ lasso.res |>
 <!-- results -->
 <!-- ``` -->
 
-## Evaluieren der Ergebnisse {.justify}
+
 
 ## Überprüfungsprozess {.justify}
 
