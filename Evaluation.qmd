@@ -175,6 +175,7 @@ plan(sequential)
 saveRDS(rfII.res, "rfII_val_res.rds")
 ```
 
+### Metriken {.justify}
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: tab-metrics-rfII
@@ -460,6 +461,7 @@ plan(sequential)
 saveRDS(rf.res, "rfIII_npv_res.rds")
 ```
 
+### Metriken {.justify}
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: tab-metrics-rfIII-npv
@@ -556,6 +558,7 @@ plan(sequential)
 saveRDS(rf.auc.res, "rf_GPT_auc_res.rds")
 ```
 
+### Metriken {.justify}
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: tab-metrics-rfIV-auc
@@ -649,6 +652,7 @@ plan(sequential)
 saveRDS(rf.res, "rf_GPT_npv_res.rds")
 ```
 
+### Metriken {.justify}
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: tab-metrics-rfIV-npv
@@ -671,8 +675,8 @@ rf.res |>
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-rfIII-npv-conf-mat-plot
-#| fig-cap: Confusion Matrix des Random Forrest III für NPV
+#| label: fig-rfIV-npv-conf-mat-plot
+#| fig-cap: Confusion Matrix des Random Forrest IV für NPV
 rf.res |> 
   collect_predictions() |>  
   conf_mat(truth = Classification, estimate = .pred_class) |> 
@@ -687,7 +691,7 @@ rf.res |>
 
 
 
-## Logistische Rgression mit 2.Ableitungen & EP Befund-Text-Klassifikation für ROC-AUC getuned {.justify}
+## Logistische Regression mit 2.Ableitungen & EP Befund-Text-Klassifikation für ROC-AUC getuned {.justify}
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: tab-metrics-log-regression-roc
@@ -842,7 +846,180 @@ lasso.res |>
   autoplot(type = "heatmap")
 ```
 
+## Übersicht der Modelle {.justify}
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-models
+#| tbl-cap: Übersicht der Modelle
 
+#models <- c("rfI", "rfII", "rfII_npv", "rfIII", "rfIII_npv", "rfIV", "rfIV_npv", "log", "log_all", "lasso")
+#metrics <- c("roc_auc", "accuracy", "kap", "sens", "spec", "ppv", "npv", "f_meas")
+
+rfI.res <- readRDS("rfI_res.rds")
+rfI.m <- rfI.res |> 
+  collect_metrics(summarize = TRUE)|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3),
+    model = "rfI"
+  ) #|> 
+  #select(metric, mean, n, sd)
+
+rfII.res <- readRDS("rfII_val_res.rds")
+rfII.m <- rfII.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3),
+    model = "rfII"
+  ) #|> 
+  #select(metric, mean, n, sd) 
+
+rfII.npv.res <- readRDS("rfII_npv_res.rds")
+rfII.npv.m <- rfII.npv.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3),
+    model = "rfII_npv"
+  ) #|> 
+  #select(metric, mean, n, sd)
+
+
+rfIII.res <- readRDS("rfIII_auc_res.rds")
+rfIII.m <- rfIII.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3),
+    model = "rfIII"
+  ) #|> 
+  #select(metric, mean, n, sd)
+
+
+rf.res <- readRDS("rfIII_npv_res.rds")
+rfIII.npv.m <- rf.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3),
+    model = "rfIII_npv"
+  ) #|> 
+  #select(metric, mean, n, sd) 
+
+rf.res <- readRDS("rf_GPT_auc_res.rds")
+rfIV.m <- rf.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3),
+    model = "rfIV"
+  ) #|> 
+  #select(metric, mean, n, sd)
+
+rf.res <- readRDS("rf_GPT_npv_res.rds")
+rfIV.npv.m <- rf.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3),
+    model = "rfIV_npv"
+  ) #|> 
+  #select(metric, mean, n, sd)
+
+
+log.res <- readRDS("log_res.rds")
+log.m <- log.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3),
+    model = "logReg"
+  ) |> 
+  select(metric, mean, n, sd) 
+
+
+log.res <- readRDS("log_res_all.rds")
+log.all.m <- log.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3),
+    model = "logReg_all"
+  ) #|> 
+  #select(metric, mean, n, sd)
+
+
+lasso.res <- readRDS("lasso_res.rds")
+lasso.m <- lasso.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3),
+    model = "lasso"
+  ) |> 
+  #select(metric, mean, n, sd) |>
+  head(8)
+
+model.compare <- bind_rows(rfI.m, rfII.m, rfII.npv.m, rfIII.m, rfIII.npv.m, rfIV.m, rfIV.npv.m, log.m, log.all.m, lasso.m) |> 
+  select(model, metric, mean, n, sd) |> 
+  pivot_wider(names_from = metric, values_from = c(mean, sd))
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-model-compare
+#| tbl-cap: Vergleich der Modelle
+model.compare |> 
+  na.omit() |>
+  arrange(desc(mean_npv), desc(mean_roc_auc)) |>
+  flextable()
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-model-compare
+#| fig-cap: Vergleich der Modelle
+model.compare |>
+  na.omit() |>
+  arrange(mean_roc_auc) |>
+  mutate(model = fct_reorder(model, mean_roc_auc)) |>
+  ggplot(aes(model, mean_roc_auc, fill=model)) +
+  geom_col() +
+  coord_flip() +
+  #scale_fill_brewer(palette = "Blues") +
+   geom_text(
+     size = 3,
+     aes(label = round(mean_roc_auc, 2), y = mean_roc_auc + 0.08),
+     vjust = 1
+              ) 
+
+model.compare |>
+  na.omit() |>
+  arrange(mean_npv) |>
+  mutate(model = fct_reorder(model, mean_npv)) |>
+  ggplot(aes(model, mean_npv, fill=model)) +
+  geom_col() +
+  coord_flip() +
+  #scale_fill_brewer(palette = "Blues") +
+   geom_text(
+     size = 3,
+     aes(label = round(mean_npv, 2), y = mean_npv + 0.08),
+     vjust = 1
+              ) 
+
+
+
+```
 
 <!-- ```{r, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE} -->
 <!-- ref.val.res <- readRDS("rfII_val_res.rds") -->
@@ -890,7 +1067,35 @@ lasso.res |>
 <!-- results -->
 <!-- ``` -->
 
+## Zusammenfassung & Überprüfungsprozess  {.justify}
+Ständiger Konflikt Tägliche Arbeit vs Model-Entwicklung
+ - zu wenig Zeit für Data-Understanding & Data-Preparation
+
+- bisher kein Modell mit einer ROC-AUC > 0.9
+- bisher kein Modell mit einer NPV > 0.9
+
+Ich sehe noch nicht wie die vorhandenen Modelle in der Praxis eingesetzt werden können, und im Alltag einen Mehrwert und Entlastung bringen könnten.
+Ich empfehle daher, die Modelle weiter zu optimieren.
+
+** Weitere Schritte**
+- Narmalisierung der Daten
+- Downsampling
+- Optimierung der Hyperparameter
+    - Anzahl Bäume
+    - Tiefe der Bäume (min_n) breiter anschauen
+    - sample fraction
+    - importance
+    
+- Mehr Daten sammeln
+
+- Weitere Klassen einführen? (polyklonale Verstärkung, Hypogammaglobulinämie)
+- EP-Befundtext mit gpt-4o klassifizieren
+
+- XG-Boost ausprobieren
+
+- Ensemble-Methode?
 
 
-## Überprüfungsprozess {.justify}
+
+
 
