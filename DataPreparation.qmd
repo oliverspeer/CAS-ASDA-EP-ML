@@ -133,7 +133,8 @@ monate <- c(
   "November", "Nov",
   "Dezember", "Dez",
   "Monat", "Monaten"
-) 
+) |> 
+  paste(collapse = "|")
 
 # Stopwörterliste aus den Befunden (manuell ergänzt)
 ad.string <- c("ist die quantitative Bestimmung der aus der aktuellen Serumprobe und oder eine Verlaufskontrolle zu empfehlen Homogene Unspezifischer Befund vereinbar mit einer sowie der isolierten einer äusserst diskreten und diffusen in den Spuren für sicheren Je nach klinischem Kontext ist eine Verlaufskontrolle zu empfehlen und bedingt einen modifizierten Ansatz Das initial berichtete endogene Weiterhin schwacher des vorbekannten sowie der zusätzlichen diskreten in den Spuren wesentliche des stark ausgeprägten Mobilität sowie des sehr schwach ausgeprägten leicht einer äusserst diskreten und diffusen Befund mit einer schwach ausgeprägten diskret diffusen bekannten Bei unklarer Ätiologie Verlaufskontrolle diskreter Bei Ätiologie Verlaufskontrolle Typ Verlaufskontrolle B RGB initialen klin kb dv zusätzlich diskrete bekannte diskrete übrigen zeigt leichte passager klinik abklingen disret inhomogener transitorisch starken abklärung verdünnungsanalyse durchgeführt momentan extra peak beta fraktionen interferenz kontrastmittel medikamente handeln hinweis bitte markieren markieren analyse auftragsformular nicht gewünscht unserem prozess ep if automatisch gleichzeitig angesetzt danken verständnis zwischenbericht multipler ausgeprägter abklärung modifzierter durchgeführt vermutlich eher bedingter erwägen igg iga igm kappa lambda untan unten utnen pki osp maz kek")
@@ -1147,6 +1148,8 @@ text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels 
 
 
 ``` 
+
+
 
 Im folgenden werden die Steigungen m, zweite Ableitungen fdd und die Flächen AUC bei allen Datenpunkten der Chromatogramme berechnet.
 
