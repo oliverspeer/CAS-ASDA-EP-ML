@@ -22,15 +22,15 @@ cat("Version:\n",format(file.info("BusinessUnderstanding.qmd")$mtime,"%d. %B %Y"
 
 Dieses Quarto-Book beinhaltet die Kapitel des CRISP-DM-Prozesses, die zur Erstellung von Modellen für die automatisierte Zuordnung von Protein-Elektrophorese-Chromatogrammen zu den Klassen "unauffällig" oder "pathologisch" führen.
 
-**toDo Liste:**
-`r Sys.Date()`
+<!-- **toDo Liste:** -->
+<!-- `r Sys.Date()` -->
 
 
-- Data Preparation Simpsons versus trapez bei AUC Berechnung beschreiben, vielleicht Tabelle und Graphik zeigen die Simpson und  Trapez vergleicht
+<!-- - Data Preparation Simpsons versus trapez bei AUC Berechnung beschreiben, vielleicht Tabelle und Graphik zeigen die Simpson und  Trapez vergleicht -->
 
-- smoothspline prediction plot anschauen und zeigen.
+<!-- - smoothspline prediction plot anschauen und zeigen. -->
 
-- Data Preparation: Vergleich Tri-Gramme vs Uni-Gramme. Entscheid Unigramme für kmeans da ansonste Matrix zu sparse beschreiben
+
 
 
 
