@@ -47,14 +47,13 @@ aufteilen.
     -  10-fach Kreuzvalidierung wäre besser, aber aufgrund der Rechenintensität und Zeitmangels wird dies auf die Zeit nach dem CAS verschoben. 
 
 2) Auswahl des besten random forst Models    
-Metriken: ROC-AUC & accuracy
+Metriken: ROC-AUC & NPV
 3) Auswahl der  wichtigsten Variablen (variable importance)  
 Untersuchung der Wichtigkeit mit permutation importance  
 Anzahl der wichtigsten Variablen erreicht 95% der Gesamtwichtigkeit (95% importance score)?   
-4) Training & Tuning einer logistischen Regression / Lasso-Regression mit diesen wichtigsten   Variablen **(Trainingsdaten)**    
-5) Hyperparamtertuning einer logistischen Regression mit 10-facher Kreuzvalidierung **(Trainingsdaten)**    
+4) Training logistischer Regressionen / Lasso-Regression mit diesen wichtigsten   Variablen **(Trainingsdaten)**    
 6) Auswahl des besten Regressionsmodels    
-Metriken: ROC-AUC, accuracy  
+Metriken: ROC-AUC, NPV  
 7) Vergleich des besten random forest und der besten Regression auf den **Validationsdaten**  
 8) Auswahl des sinnvollsten Models (Einsatz im Alltag, IT-ressourcen etc als Entscheidungsgrundlage)
 9) Testen des finales Models auf den **Test-Daten**  
@@ -788,7 +787,7 @@ saveRDS(final.rf, "final_GPT_rf_auc.rds")
 final.rf
 ```
 
-```{r bestmodelRFIIInpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r bestmodelRFIVnpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 regular.res <- readRDS("GPT_resRF.rds")
 best.npv <- select_best(regular.res, metric = "npv")
 best.npv
@@ -809,16 +808,18 @@ final.rf.npv
 
 #### Model-Fit mit den Top 50 fdd: recipe, tuning spec, workflow, 10x resempling {.justify}
 
-```{r logistic-regression, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r logistic-regression-formula, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # Daten einlesen
 EPBtraining <- readRDS("EPBtraining.rds")
 
 # formula
 EPB.formula <- as.formula(paste("EPKlassifizierung ~", paste(var.imp$Variable, collapse = " + ")))
 
+EPB.formula
+```
 
 
-
+```{r logistic-regression, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Funktion zur parallelisierten Durchführung der Cross-Validation einer logistischen Regression (glm binomial) mit Rezept und Modellspezifikation
 # fun.cv.log.reg <- function(formula, training_data, folds = 10, seed = 8173, workers = 10) {
 #   set.seed(seed)
@@ -869,18 +870,18 @@ EPB.formula <- as.formula(paste("EPKlassifizierung ~", paste(var.imp$Variable, c
 # }
 # 
 # save(fun.cv.log.reg, file = "fun.cv.log.reg.RData")
-# Beispielaufruf der Funktion
-# Ergebnis <- perform_cross_validation(formula = EPB.formula, training_data = EPBtraining)
+
 
 source("fun.cv.log.reg.R")
 
 log.res <-  fun.cv.log.reg(EPB.formula, EPBtraining)
 
+
 saveRDS(log.res, "log_res.rds")
-  
-
-
 ```
+
+
+
 
 
 
@@ -1004,6 +1005,7 @@ lasso.res |>
     sd = round(std_err, 3)
   ) |> 
   select(metric, mean, n, sd) |>
+  head(8) |>
   flextable()
 
 ```
