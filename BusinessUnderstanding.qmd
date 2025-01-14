@@ -167,6 +167,101 @@ Die technisch operative Durchführung der EPs ist mit dem Capylaris (@fig-capy) 
 
 Die Software des Capylaris speichert die Signalstärken der EPs und stellt diese als Chromatogramme dar (@fig-chrom). Die Kontrolle und Interpretation der EP-Chromatogramme wird in zwei Phasen aufgeteilt: der technischen Validation und der medizinischen Validation. Dieser Validationsprozess benötigt viel Zeit und Know-How, ist komplex und erfordert Erfahrung und Wissen. Vorallem die medizinische Validation ist zum Teil subjektiv und wird von verschiedenen Mitarbeitenden unterschiedlich durchgeführt.
 
+```{r read csv, echo=FALSE, message=FALSE, warning=FALSE}
+# Einlesen der Daten
+
+EPcsv <- read_csv2("epcdatawithcurve.csv", col_select = c(1:4, 6), col_types = "icccc") |> 
+  rename_with(~ c("ID", "TaNu", "Bef.EP", "Bef.ImFix", "curve"))
+#str(EPcsv)
+```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-peak-patho
+#| fig-cap: Pathologisches Chromatogramm mit detektierten Peaks
+
+library(pracma)
+
+
+
+hex.string <- EPcsv$curve[EPcsv$ID == 1675]
+
+# Split the string into hexadecimal parts
+hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
+
+# Convert each hex part to decimal
+decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
+
+# dataframe with hexadecimal and decimal values
+dat <- as.data.frame(decimal.values)
+dat$decimal.values <- rev(dat$decimal.values)
+dat$hex.parts <- hex.parts
+dat$ID <- seq_len( nrow(dat) ) 
+
+# delete rows with decimal values >10000
+dat <- dat[dat$decimal.values < 10000,]
+
+peaks <- findpeaks(dat$decimal.values, npeaks = 15, nups = 1, ndowns = 0, minpeakheight = 80)
+
+
+plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = " ")
+points(dat$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
+abline(v = dat$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks
+abline(v = dat$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks
+abline(v = dat$ID[160], col = "orange", lty = 2)
+text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels = c("Albumin", "alpha 1", "alpha 2", "beta 1", "beta 2", "gamma"),
+     pos = c(2, 3, 3, 3, 3, 3), offset = 0.5  , col = "darkgreen")
+
+
+
+
+
+``` 
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-peak-poly
+#| fig-cap: Auffälliges Chromatogramm mit detektierten Peaks
+
+library(pracma)
+
+
+
+hex.string <- EPcsv$curve[EPcsv$ID == 9075]
+
+# Split the string into hexadecimal parts
+hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4))
+
+# Convert each hex part to decimal
+decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x)))
+
+# dataframe with hexadecimal and decimal values
+dat <- as.data.frame(decimal.values)
+dat$decimal.values <- rev(dat$decimal.values)
+dat$hex.parts <- hex.parts
+dat$ID <- seq_len( nrow(dat) ) 
+
+# delete rows with decimal values >10000
+dat <- dat[dat$decimal.values < 10000,]
+
+peaks <- findpeaks(dat$decimal.values, npeaks = 15, nups = 1, ndowns = 0, minpeakheight = 80)
+
+
+plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = " ")
+points(dat$ID[peaks[,2]], peaks[,1], col = "red", pch = 20)
+abline(v = dat$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks
+abline(v = dat$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks
+abline(v = dat$ID[160], col = "orange", lty = 2)
+#text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels = c("Albumin", "alpha 1", "alpha 2", "beta 1", "beta 2", "gamma"),
+#     pos = c(2, 3, 3, 3, 3, 3), offset = 0.5  , col = "darkgreen")
+
+
+
+
+
+``` 
+
+![**Immun-Fixation:** Serum-Protein-Elektrophorese und Immunfixation zum Nachweis von Paraproteinen](ifix.png){#fig-ifix}
+
+
 Zudem stehen alle Mitarbeitenden unter permanentem Zeitdruck, da pro Mitarbeitenden viele Aufträge in unterschiedlichen Prozessen anfallen.
 
 Da die Mehrheit der Chromatogramme normal (= unauffällig) sind, wäre es eine wesentliche Erleichterung, wenn ein digitales System (machine learning model) diese als solche erkennen und klassifizieren könnte.
@@ -233,10 +328,10 @@ Chromatogramm-Daten und Patienten-Daten sind über die eineindeutige Tagesnummer
 
 **Anforderungen**  
 
-    -   80% der normalen Protein-Elektrophoresen werden von einem Model automatisiert korrekt interpretiert
-    -   0% der pathologischen Protein-Elektrophoresen werden von einem Model als normal klassifiziert
-    -   Nach verschiedenen Publikationen wird für ML-Projekte im diagnostischen Bereich die Ground-Truth mit einer anderen Messmethode definiert. Z. Bsp. ML-Modell für die Interpretation von EP-Chromatogrammen wird mit der Klassifizierung basierend auf Immunfixationen oder Immuno-Typing trainiert @elfertExpertlevelDetectionMproteins2024.
-    -   Dokumentierte Übernahme des Modells in die Produktion entsprechend dem ISO 15198 akkreditierten Prozess
+-   80% der normalen Protein-Elektrophoresen werden von einem Model automatisiert korrekt interpretiert
+-   0% der pathologischen Protein-Elektrophoresen werden von einem Model als normal klassifiziert
+-   Nach verschiedenen Publikationen wird für ML-Projekte im diagnostischen Bereich die Ground-Truth mit einer anderen Messmethode definiert. Z. Bsp. ML-Modell für die Interpretation von EP-Chromatogrammen wird mit der Klassifizierung basierend auf Immunfixationen oder Immuno-Typing trainiert [@elfertExpertlevelDetectionMproteins2024].
+-   Dokumentierte Übernahme des Modells in die Produktion entsprechend dem ISO 15198 akkreditierten Prozess
 
 **Annahmen**  
 
@@ -297,11 +392,11 @@ pplan <- ganttAddTask(pplan, "Fill data into SQLite db", "2025-01-14", "2025-01-
 pplan <- ganttAddTask(pplan, "Modeling")
 pplan <- ganttAddTask(pplan, "random forrest", "2024-12-31", "2025-01-03", done = 80)
 #pplan <- ganttAddTask(pplan, "PCA", "2024-12-27", "2024-12-28", done = 0)
-pplan <- ganttAddTask(pplan, "logistic Regression", "2025-01-06", "2025-01-12", done = 0)
+pplan <- ganttAddTask(pplan, "logistic Regression", "2025-01-06", "2025-01-12", done = 60)
 
 
-pplan <- ganttAddTask(pplan, "Evaluation", "2025-01-03", "2025-01-15", done = 0)
-pplan <- ganttAddTask(pplan, "Deployment", "2025-02-01", "2025-04-30", done = 0)
+pplan <- ganttAddTask(pplan, "Evaluation", "2025-01-03", "2025-01-12", done = 80)
+pplan <- ganttAddTask(pplan, "Deployment", "2025-01-15", "2025-04-30", done = 10)
 font <- ifelse(is.na(pplan[["start"]]), 2, 1)
 ```
 
