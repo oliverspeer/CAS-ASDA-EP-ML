@@ -800,6 +800,137 @@ final.rf.npv
 ```
 
 
+### Random Forest V {.justify}
+- Klassifizierung: nach EP Befunden manuell bereinigt
+- Klassen: unauffällig, Suspicous
+- Features: fdd, m mit autoencoder die features identifiziert, die die grösste Rekontruktionsdifferenz haben
+
+#### Fine-Tuning {.justify}
+```{r finetuningV grid, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(tidymodels)
+EP50.training <- readRDS("EP50_training.rds")
+
+
+# recipe building
+EP.rec <- 
+  recipe(EPKlasse ~ ., data = EP50.training) |>
+  update_role(ID, new_role = "ID") 
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EP50.training, v = 5)
+EPfolds
+
+rf.grid <- grid_regular(
+  mtry(range = c(5, 40)),
+  min_n(range = c(3, 15)),
+  levels = 8
+)
+
+rf.grid
+```
+#### Tune Spezifikationen und Workflow 
+
+```{r specs finetuning IV, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# tune setting
+tune.spec <- rand_forest(
+  mtry = tune(),
+  trees = 1000,
+  min_n = tune()
+) |> 
+  set_mode("classification")  |> 
+  set_engine("ranger", num.threads = 2)
+
+#tune.spec
+
+# workflow
+tune.wf <- workflow() |>
+  add_recipe(EP.rec) |>
+  add_model(tune.spec)
+
+tune.wf
+
+
+
+
+``` 
+
+```{r finetuningIV, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(future)
+
+plan(multisession, workers = 5)
+
+set.seed(8173)
+res.RF <- tune_grid(
+  tune.wf,
+  resamples = EPfolds,
+  metrics = metric_set(roc_auc, sens, spec, npv),
+  grid = rf.grid,
+  parallel_over = "resamples",
+  control = control_grid(verbose = TRUE)
+)
+
+plan(sequential)
+
+saveRDS(res.RF, "EP50_resRF.rds")
+
+```
+
+```{r figfinetuning IV, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figfinetuningIV
+#| fig-cap: Feintuning des Random Forest Modells für die EP Befunde mit m, fdd & AUC
+#| 
+res.RF <- readRDS("EP50_resRF.rds")
+res.RF |>
+  collect_metrics() |>
+  filter(.metric == "roc_auc") |>
+  mutate(min_n = factor(min_n)) |>
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "AUC")
+```
+
+```{r figfinetuning IVnpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figfinetuningIV-npv
+#| fig-cap: 2. Feintuning des Random Forest Modells für die EP Befunde Basis NPV
+#| 
+res.RF <- readRDS("EP50_resRF.rds")
+res.RF |>
+  collect_metrics() |>
+  filter(.metric == "npv") |>
+  mutate(min_n = factor(min_n)) |>
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "NPV")
+```
+
+#### Auswahl des besten Modells {.justify}
+```{r bestmodelRFIVauc, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+regular.res <- readRDS("EP50_resRF.rds")
+best.auc <- select_best(regular.res, metric = "roc_auc")
+best.auc
+
+final.rf <- finalize_model(tune.spec, best.auc)
+
+saveRDS(final.rf, "final_EP50_rf_auc.rds")
+
+final.rf
+```
+
+```{r bestmodelRFIVnpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+regular.res <- readRDS("EP50_resRF.rds")
+best.npv <- select_best(regular.res, metric = "npv")
+best.npv
+
+final.rf.npv <- finalize_model(tune.spec, best.npv)
+
+saveRDS(final.rf.npv, "final_EP50_rf_npv.rds")
+
+final.rf.npv
+```
+
 
 
 
