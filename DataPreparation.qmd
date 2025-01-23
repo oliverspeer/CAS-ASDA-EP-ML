@@ -1663,6 +1663,16 @@ dev.df1 <- dev.df1 |>
 
 saveRDS(dev.df1, "dev_df1.rds")
 
+# 21.1.25 für manuelles Nachbessern der Klassifizierung---------------------------------
+dev.man.EP <- dev.df1 |> 
+  select( ID, 
+          Bef.EP,
+          EPKlassifizierung
+          )
+
+# write as csv
+write.csv(dev.man.EP, "dev_man_EP.csv")
+
 ```
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
@@ -1812,7 +1822,7 @@ EPB.all.split
 ```
 
 ### 12.01.2024 Neue Klassifizierung mit GPT-4o {.justify}
-Mit GTP-4o wurd eine neue Klassifizierung der EP-Befunde vorgenommen.
+Mit GTP-4o wurde eine neue Klassifizierung der EP-Befunde vorgenommen.
 Es gibt folgende Klassen:
 - unauffällig
 - M-Protein
@@ -1863,9 +1873,42 @@ ft
 
 ```
 
+### 21.01.2025 Neue Klassifizierung mit manueller NAchbesserung der Klassifizierung der EP-Befundtexte {.justify}
 
+Es gibt folgende Klassen:
+- unauffällig
+- suspecious
+- noInfo
 
-### 12.01.2024 Auswahl der relevanten Features {.justify}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# einlesen der neuen Klassifizierung
+EP.man <- read_csv("dev_man_EP.csv")
+dev.df1 <- readRDS("dev_df1.rds")
+
+# join der neuen Klassifizierung mit den EP-Daten
+dev.df1 <- dev.df1 |> 
+  left_join(select(EP.man, ID, EPKlasse), by = "ID") 
+
+dev.df1$EPKlasse <- as.factor(dev.df1$EPKlasse) 
+
+saveRDS(dev.df1, "dev_df1.rds")
+```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-EPman-class_distribution
+#| tbl-cap: Verteilung der manuell korrigierten EP-Klassifizierungen
+
+EPcsv1 <- readRDS("~/CAS-EP&ML/dev_df1.rds")
+
+ft <- EPcsv1 |> 
+  count(EPKlasse) |> 
+  flextable() |>
+  width(j = 1, width = 3.5)
+ft
+
+```
+
+### 12.01.2025 Auswahl der relevanten Features {.justify}
 y-Werte, m, fdd und AUC für die Modellierung
 
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
@@ -1885,6 +1928,280 @@ dev.sub.GPT.all <- dev.df1 |>
           ) 
 
 saveRDS(dev.sub.GPT.all, "dev_sub_GPT_all.rds")
+
+```
+
+### 21.01.2025 Auswahl der relevanten Features {.justify}
+y-Werte, m, fdd und AUC für die Modellierung
+
+#### Datenvorbereitung für Autoencoder
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Auswahl der relevanten Features
+# Subsets des DataFrames dev.df1 für die Modellierungen
+# dev.df1 <- readRDS("dev_df1.rds")
+
+dev.man.EP.all <- dev.df1 |> 
+  filter(EPKlasse != "noInfo") |>
+  mutate(EPKlasse = droplevels(EPKlasse)) |>
+  select( ID, 
+          EPKlasse, 
+          EP.y150:EP.y300, 
+          m150:m300, 
+          fdd150:fdd300, 
+          AUC150:AUC300
+          ) 
+
+saveRDS(dev.man.EP.all, "dev_man_EP_all.rds")
+
+
+
+
+
+```
+
+
+#### keras und tensorflow: Datenvorbereitung für Autoencoder: Normalisierung der Daten in einer Matrix
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# matrix from dev.man.EP.all without ID
+dev.man.EP.all <- readRDS("dev_man_EP_all.rds")
+man.EP.mtrx <- dev.man.EP.all |> 
+  select(-c(ID, AUC300)) |> 
+  mutate(across(everything(), as.numeric)) |> 
+  as.matrix()
+
+# Normalisierung
+normalize <- function(x) (x - min(x)) / (max(x) - min(x))
+# Normalisierung nur auf die Spalten 2 bis n
+man.EP.mtrx[, 2:ncol(man.EP.mtrx)] <- apply(man.EP.mtrx[, 2:ncol(man.EP.mtrx)], 2, normalize)
+
+# Trenne unauffällige und suspicous Daten
+dat.unauf <- man.EP.mtrx[man.EP.mtrx[,1] ==2,]
+dat.susp <- man.EP.mtrx[man.EP.mtrx[,1] == 1, ]
+     
+# Anzahl features
+n_features <- ncol(dat.unauf)-1
+```
+
+#### keras und tensorflow: Autoencoder-Modell  definieren
+Mit den unauffälligen Proben wird ein Autoencoder-Modell trainiert, um die normalen Daten zu lernen.
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} 
+# start tensorflow session
+ library(reticulate)
+ use_virtualenv("r-tensorflow", required = TRUE)
+ py_config()
+
+
+library(keras)
+library(tensorflow)
+
+
+
+# Parameter
+input_dim <- n_features
+encoding_dim <- 64
+
+
+# 
+# # Erwarteter Output:
+# # python:         /home/olli/.virtualenvs/r-tensorflow/bin/python
+# # libpython:      /usr/lib/python3.10/config-3.10-x86_64-linux-gnu/libpython3.10.so
+# # pythonhome:     /home/olli/.virtualenvs/r-tensorflow:/home/olli/.virtualenvs/r-tensorflow
+# # virtualenv:     /home/olli/.virtualenvs/r-tensorflow/bin/activate_this.py
+# # version:        3.10.16 (main, Dec  4 2024, 08:53:38) [GCC 13.2.0]
+# # numpy:          /home/olli/.virtualenvs/r-tensorflow/lib/python3.10/site-packages/numpy
+# # numpy_version:  2.0.2
+
+
+# Encoder
+input_layer <- layer_input(shape = c(input_dim))
+encoded <- input_layer %>%
+  layer_dense(units = 128, activation = "relu") %>%
+  layer_dense(units = encoding_dim, activation = "relu")
+
+# Decoder
+decoded <- encoded %>%
+  layer_dense(units = 128, activation = "relu") %>%
+  layer_dense(units = input_dim, activation = "sigmoid")
+
+# Autoencoder-Modell
+autoencoder <- keras_model(inputs = input_layer, outputs = decoded)
+
+# Kompilierung
+autoencoder$compile(
+  optimizer = tf$keras$optimizers$Adam(),
+  loss = "mse"
+)
+
+
+```
+
+#### keras und tensorflow: Autoencoder-Modell trainieren
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# trainings Daten
+train_data <- dat.unauf[, -1]
+
+
+history <- autoencoder %>% fit(
+  x = train_data,
+  y = train_data,  # Ziel ist die Rekonstruktion der Eingabedaten
+  epochs = 50,     # Anzahl der Epochen
+  batch_size = 32, # Batch-Größe
+  validation_split = 0.2  # Anteil der Validierungsdaten
+)
+
+
+
+```
+
+
+### h2o-Workflow {.justify}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(h2o)
+h2o.init(nthreads = 10, max_mem_size = "56G")
+
+# Import und Vorbereiten der Daten
+dat_h2o <- readRDS("dev_man_EP_all.rds") |> 
+  filter(EPKlasse == "unauffällig") |>
+  select(-ID, -EPKlasse, -AUC300) |> 
+  as.h2o()
+
+
+dat_susp_h2o <- readRDS("dev_man_EP_all.rds") |> 
+  filter(EPKlasse == "suspicous") |>
+  select(-ID, -EPKlasse, -AUC300) |> 
+  as.h2o()
+
+
+# Hyperparameter für die Grid Search
+hyper_params <- list(
+  hidden = list(c(128, 64, 128), c(64, 32, 64), c(256, 128, 256)),  # Verschiedene Layer-Architekturen
+  activation = c("Tanh", "Rectifier"),            # Verschiedene Aktivierungsfunktionen
+  l1 = c(1e-5, 1e-4),                                         # L1-Regularisierung
+  epochs = c(50)                                               # Unterschiedliche Epochen
+)
+
+# Grid Search ausführen
+grid <- h2o.grid(
+  algorithm = "deeplearning",      # Deep Learning Modell
+  grid_id = "autoencoder_grid",    # ID der Grid Search
+  x = names(dat_h2o),              # Features
+  training_frame = dat_h2o,        # Trainingsdaten
+  autoencoder = TRUE,              # Aktiviert den Autoencoder-Modus
+  hyper_params = hyper_params,     # Hyperparameter-Liste
+  seed = 8173                      # Reproduzierbarkeit
+)
+
+grid_performance <- h2o.getGrid(
+  grid_id = "autoencoder_grid",
+  sort_by = "mse",
+  decreasing = FALSE
+)
+print(grid_performance)
+
+failed_models <- grid_performance@failed_params
+print(failed_models)
+
+best_model <- h2o.getModel(grid_performance@model_ids[[1]])
+summary(best_model)
+
+
+# Autoencoder-Modell
+# autoencoder_h2o <- h2o.deeplearning(
+#   x = names(dat_h2o),  # Alle Features
+#   training_frame = dat_h2o,
+#   autoencoder = TRUE,  # Aktiviert den Autoencoder-Modus
+#   hidden = c(128, 64, 128),  # Architektur: Encoder- und Decoder-Schichten
+#   activation = "Tanh",  # Aktivierungsfunktion
+#   epochs = 50,          # Anzahl der Epochen
+#   l1 = 1e-5,            # Regularisierung (optional)
+#   seed = 8173            # Reproduzierbarkeit
+# )
+
+
+```
+#### Rekonstruktionsfehler berechnen
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Rekonstruktionsfehler pro feature berechnen
+reconstruction_error_unauf <- as.data.frame(h2o.anomaly(best_model, dat_h2o, per_feature = TRUE))
+reconstruction_error_susp <- as.data.frame(h2o.anomaly(best_model, dat_susp_h2o, per_feature = TRUE))
+
+```
+
+#### Vergleiche der Fehler pro feature
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+mean_error_unauf <- colMeans(reconstruction_error_unauf)
+mean_error_susp <- colMeans(reconstruction_error_susp)
+
+# Zusammenfassen in einem DataFrame
+feature_comparison <- data.frame(
+  Feature = names(mean_error_unauf),
+  Mean_Error_Unauf = mean_error_unauf,
+  Mean_Error_Susp = mean_error_susp,
+  Difference = mean_error_susp - mean_error_unauf
+) |> 
+  mutate(Feature = gsub("^reconstr_|\\.SE$", "", Feature)) |> 
+  arrange(desc(Difference))
+
+# Sortieren nach Differenz
+feature_comparison <- feature_comparison[order(-feature_comparison$Difference), ]
+```
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-feature_comparison
+#| tbl-cap: Vergleich der Rekonstruktionsfehler pro Feature
+
+ft <- flextable(feature_comparison) |>
+  set_header_labels(Feature = "Feature",
+                    Mean_Error_Unauf = "Mittlerer Fehler (unauffällig)",
+                    Mean_Error_Susp = "Mittlerer Fehler (suspicous)",
+                    Difference = "Differenz") |>
+  autofit() |>
+  bold(part = "header") |>
+  align(align = "center", part = "all")
+ft
+```
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(ggplot2)
+
+top_features <- feature_comparison[1:30, ]  # Top 30 Features
+ggplot(top_features, aes(x = reorder(Feature, -Difference), y = Difference)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Top 30 Features mit höchster Fehlerdifferenz",
+       x = "Feature",
+       y = "Fehlerdifferenz (Suspicious - Unauffällig)")
+
+
+```
+
+#### top 50 features mit größter Differenz extrahieren und Trainingsdaten speichern
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Extrahieren der top 50 Features
+top_features <- feature_comparison[1:50, ] |> 
+  pull(Feature)
+
+# Trainingsdaten speichern
+library(tidymodels)
+EP50.split <- readRDS("dev_man_EP_all.rds") |> 
+  select(ID, EPKlasse, top_features) |>
+  initial_validation_split(prop = c(0.6, 0.2), strata = EPKlasse)
+
+saveRDS(EP50.split, "EP50_split.rds")
+
+EP50.training <- training(EP50.split)
+saveRDS(EP50.training, "EP50_training.rds")
+
+EP50.validation <- validation(EP50.split)
+saveRDS(EP50.validation, "EP50_validation.rds")
+
+
+  
+  
+
+
 
 ```
 
