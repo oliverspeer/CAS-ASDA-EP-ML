@@ -2054,9 +2054,12 @@ library(ggplot2)
 # Daten vorbereiten
 reconstruction_error_unauf$Group <- "Unauffällig"
 reconstruction_error_mgrad$Group <- "M-Gradient"
+reconstruction_error_all <- all_data |> 
+  select(Reconstruction.MSE) |> 
+  mutate(Group = "Alle")
 
 # Beide Datensätze kombinieren
-data_combined <- rbind(reconstruction_error_unauf, reconstruction_error_mgrad)
+data_combined <- rbind(reconstruction_error_unauf, reconstruction_error_mgrad, reconstruction_error_all)
 
 # Dichtekurven plotten
 ggplot(data_combined, aes(x = Reconstruction.MSE, color = Group, fill = Group)) +
@@ -2065,10 +2068,10 @@ ggplot(data_combined, aes(x = Reconstruction.MSE, color = Group, fill = Group)) 
   geom_vline(data = data.frame(
     Group = c("Unauffällig", "Unauffällig", "M-Gradient", "M-Gradient"),
     Quantile = c(
-      quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.99),
-      quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.01),
-      quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.99),
-      quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.01)
+      quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.98),
+      quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.015),
+      quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.985),
+      quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.015)
     )
   ), 
   aes(xintercept = Quantile, color = Group), linetype = "dashed") +  # Quantile als gestrichelte Linien
@@ -2084,8 +2087,21 @@ ggplot(data_combined, aes(x = Reconstruction.MSE, color = Group, fill = Group)) 
 
 ```
 
-
-
+##### Klassifizierung mithilfe der Rekonstruktionsfehler in "unauffällig", "M-Gradient" und "suspicious"
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Klassifizierung in "unauffällig", "M-Gradient" und "suspicous"
+all_data <- all_data |> 
+   mutate(
+    Class = case_when(
+      Reconstruction.MSE >= quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.015) &
+        Reconstruction.MSE <= quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.98) ~ "suspicous",
+      Reconstruction.MSE > quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.98) ~ "M-Gradient",
+      TRUE ~ "unauffällig"
+    ) |> 
+    as.factor()
+  ) |> 
+  select(Class, everything())
+```
 <!-- #### Vergleiche der Fehler pro feature -->
 <!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
 <!-- mean_error_unauf <- colMeans(reconstruction_error_unauf) -->
@@ -2148,6 +2164,23 @@ saveRDS(all.data.training, "all_data_training.rds")
 
 all.data.validation <- validation(all.data.split)
 saveRDS(all.data.validation, "all_data_validation.rds")
+
+```
+
+### Trainingsdaten mgrad speichern
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Trainingsdaten speichern
+all.data.mgrad.split <- all_data |> 
+  select(ID, Class, EP.y1:fdd300) |>
+  initial_validation_split(prop = c(0.6, 0.2), strata = Class)
+
+saveRDS(all.data.mgrad.split, "all_data_mgrad_split.rds")
+
+all.data.mgrad.training <- training(all.data.mgrad.split)
+saveRDS(all.data.mgrad.training, "all_data_mgrad_training.rds")
+
+all.data.mgrad.validation <- validation(all.data.mgrad.split)
+saveRDS(all.data.mgrad.validation, "all_data_mgrad_validation.rds")
 
 ```
 

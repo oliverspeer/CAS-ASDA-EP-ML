@@ -874,8 +874,8 @@ rf.res |>
 ```
 
 
-## Random Forrest VI mit manuel bereinitgen EP-Befund-Text-Klassifikation für AUC getuned {.justify}
-alle y, m & fdd, autoencoder Klassifizierung
+## Random Forrest VI  {.justify}
+alle y, m & fdd, autoencoder Klassifizierung mittels Rekonstruktionsfehler nach Training mit unauffälligen Chromatogrammen
 
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Daten einlesen
