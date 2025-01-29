@@ -25,48 +25,6 @@ dbDisconnect(con)
 # Data Preparation {.unnumbered}
 
 
-<!-- ## Auswahl der Daten: Auswahl der relevanten Elemente und Merkmale {#var_selection .justify} -->
-
-
-
-
-```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE}
-library(dagitty)
-dag <- dagitty('dag {
-  age -> gammopathy
-  food -> cholesterol
-  cholesterol -> gammopathy
-  smoking -> gammopathy
-  alcohol -> liver_enzyme
-  alcohol -> cholesterol
-  gammopathy <- liver_enzyme
-  sex -> gammopathy
-  GUS -> gammopathy
-  age -> GUS
-  sex -> liver_enzyme
-  sex -> smoking
-  sex -> alcohol
-  sex -> cholesterol
-  sex -> GUS
-  sex -> age
-  age -> liver_enzyme
-  age -> food
-  age -> smoking
-  age -> alcohol
-  
-}')
-
-plot(dag)
-
-adjustmentSets(dag, exposure = "sex", outcome = "gammopathy")
-adjustmentSets(dag, exposure = "age", outcome = "gammopathy")
-```
-
-
-<!-- Sollte ich ein gam oder glm modellieren, dann kann ich aus dem oberen DAG mitnehmen, dass ich für "Alter" und "Geschlecht" adjustieren sollte. -->
-
-<!-- [**Q: Aber wie wähle ich für ein random forest Modell die relevanten Variablen aus?**]{style="#00008B"} -->
-
 
 
 ## Bereinigen der Daten {.justify}  
@@ -85,7 +43,12 @@ Kontrolle der Daten nach dem Filtern:
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # filtern der Daten EPcsv1$curve !NA
-EPcsv1 <- EPcsv[!is.na(EPcsv$curve)&!is.na(EPcsv$Bef.ImFix),] |>   
+# EPcsv1 <- EPcsv[!is.na(EPcsv$curve)&!is.na(EPcsv$Bef.ImFix),] |>   
+#   filter(!grepl("SISTIERT|entfernt", Bef.EP, ignore.case = TRUE)) |> 
+#   filter(!grepl("^(SISTIERT|entfernt|folgt)\\b", Bef.ImFix, ignore.case = TRUE)) |> 
+#   filter(!grepl("^X\\d", curve, ignore.case = FALSE))
+
+EPcsv1 <- EPcsv[!is.na(EPcsv$curve),] |>   
   filter(!grepl("SISTIERT|entfernt", Bef.EP, ignore.case = TRUE)) |> 
   filter(!grepl("^(SISTIERT|entfernt|folgt)\\b", Bef.ImFix, ignore.case = TRUE)) |> 
   filter(!grepl("^X\\d", curve, ignore.case = FALSE))
@@ -102,1008 +65,1008 @@ EPcsv1 <- EPcsv[!is.na(EPcsv$curve)&!is.na(EPcsv$Bef.ImFix),] |>
 - Von `r sum(grepl("^folgt\\b", EPcsv$Bef.ImFix, ignore.case = TRUE))`  iFix-Aufträgen, die auf "folgt" stehen, wurden `r sum(grepl("^folgt\\b", EPcsv$Bef.ImFix, ignore.case = TRUE)) - sum(grepl("^folgt\\b", EPcsv1$Bef.ImFix, ignore.case = TRUE))`   iFix-Befunde entfernt. 
 
 
-### Bereinigen der Befund-Texte {.justify}
+<!-- ### Bereinigen der Befund-Texte {.justify} -->
 
-::: {.panel-tabset}
+<!-- ::: {.panel-tabset} -->
 
-### Bereinigung der iFix-Befundtexte
-Wie im Kapitel "Data Understanding" beschrieben, werden die iFix-Befundtexte aufbereitet. Dazu werden Schreibfehler, Synonyme, Satzzeichen, Gross- und Kleinschreibung und Stopwörter bereinigt.
-In den Tabsets werden die Stopwörterlisten angezeigt.  
-- Entfernen der Klammern, Zahlen, Satzzeichen, Gross- und Kleinschreibung, Stopwörter und überflüssiger Leerzeichen.   
--Vereinheitlichung der Synonyme von "monoklonalen" und "M-Proteinen".
+<!-- ### Bereinigung der iFix-Befundtexte -->
+<!-- Wie im Kapitel "Data Understanding" beschrieben, werden die iFix-Befundtexte aufbereitet. Dazu werden Schreibfehler, Synonyme, Satzzeichen, Gross- und Kleinschreibung und Stopwörter bereinigt. -->
+<!-- In den Tabsets werden die Stopwörterlisten angezeigt.   -->
+<!-- - Entfernen der Klammern, Zahlen, Satzzeichen, Gross- und Kleinschreibung, Stopwörter und überflüssiger Leerzeichen.    -->
+<!-- -Vereinheitlichung der Synonyme von "monoklonalen" und "M-Proteinen". -->
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# Erstellen der Stopwörterliste
-library(tidytext)
-library(stringr)
-library(stopwords)
-
-# Monate als Stopwörter
-monate <- c(
-  "Januar", "Jan",
-  "Februar", "Feb",
-  "März", "März",
-  "April", "Apr",
-  "Mai", "Mai",
-  "Juni", "Jun",
-  "Juli", "Jul",
-  "August", "Aug",
-  "September", "Sept",
-  "Oktober", "Okt",
-  "November", "Nov",
-  "Dezember", "Dez",
-  "Monat", "Monaten"
-) |> 
-  paste(collapse = "|")
-
-# Stopwörterliste aus den Befunden (manuell ergänzt)
-ad.string <- c("ist die quantitative Bestimmung der aus der aktuellen Serumprobe und oder eine Verlaufskontrolle zu empfehlen Homogene Unspezifischer Befund vereinbar mit einer sowie der isolierten einer äusserst diskreten und diffusen in den Spuren für sicheren Je nach klinischem Kontext ist eine Verlaufskontrolle zu empfehlen und bedingt einen modifizierten Ansatz Das initial berichtete endogene Weiterhin schwacher des vorbekannten sowie der zusätzlichen diskreten in den Spuren wesentliche des stark ausgeprägten Mobilität sowie des sehr schwach ausgeprägten leicht einer äusserst diskreten und diffusen Befund mit einer schwach ausgeprägten diskret diffusen bekannten Bei unklarer Ätiologie Verlaufskontrolle diskreter Bei Ätiologie Verlaufskontrolle Typ Verlaufskontrolle B RGB initialen klin kb dv zusätzlich diskrete bekannte diskrete übrigen zeigt leichte passager klinik abklingen disret inhomogener transitorisch starken abklärung verdünnungsanalyse durchgeführt momentan extra peak beta fraktionen interferenz kontrastmittel medikamente handeln hinweis bitte markieren markieren analyse auftragsformular nicht gewünscht unserem prozess ep if automatisch gleichzeitig angesetzt danken verständnis zwischenbericht multipler ausgeprägter abklärung modifzierter durchgeführt vermutlich eher bedingter erwägen igg iga igm kappa lambda untan unten utnen pki osp maz kek")
-
-# stopwords anpassen, da in den tokens "nicht", "kein", "ohne" und Varianten 
-# enthalten bleiben sollen
-stopwords.olli <- stopwords("de", "stopwords-iso")
-
-stopwords.olli <- c(
-                      stopwords.olli, ad.string |>
-                      str_split(" ") |>
-                      unlist(), monate
-                    ) |>
-  tolower() |>
-  unique() |>
-  setdiff("") |>
-  sort()
-
-stopwords.olli <- setdiff(stopwords.olli, 
-                          c("nicht",
-                            "nichts",
-                            "keine", 
-                            "kein", 
-                            "keinem", 
-                            "keinen", 
-                            "keiner", 
-                            "keines", 
-                            "ohne",
-                            "und?"))
-```
-
-
-### Stopwörterliste
-
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-(stopwords.olli)
-```
-
-
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-stopwords.olli.col <- paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
-
-
-```
-
-
-### Bereinigte iFix-Befundtexte {.justify}
-
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-EPcsv1 <- EPcsv1 |>
-  mutate(
-    Bef.ImFix_cleaned = gsub("\\([^)]*\\)", "", Bef.ImFix),
-    Bef.ImFix_cleaned = gsub("[0-9]+", "", Bef.ImFix_cleaned),
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, monate, ""),
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "[[:punct:]]", " "),
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, " +", " "),
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "°", ""),    
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\b(mono)?klonale?n?s? Proteine?n?s?\\b", "M-Protein"),
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\bM Proteine?n?s?\\b", "M-Protein"),
-    Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned),
-    Bef.ImFix_cleaned = tolower(Bef.ImFix_cleaned),
-    Bef.ImFix_cleaned = gsub(stopwords.olli.col, "", Bef.ImFix_cleaned),
-    Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned)
-   )
-```
-
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: tbl-cleaned
-#| tbl-cap: Datenüberblick nach der Bereinigung der Befundtexte
-
-Bef.ImFix.freq <- EPcsv1 |> 
-  count(Bef.ImFix_cleaned, sort = TRUE) |> 
-  arrange(Bef.ImFix_cleaned)
-
-ft1 <- Bef.ImFix.freq[1461:1490,] |> 
-  arrange(desc(n)) |>
-  #head(20) |> 
-  flextable()
-
-ft2 <- Bef.ImFix.freq[1611:1640,] |> 
-  arrange(desc(n)) |>
-  #head(20) |> 
-  flextable()
-
-ft3 <- Bef.ImFix.freq[1931:1960,] |> 
-  arrange(desc(n)) |>
-  #head(20) |> 
-  flextable()
-
-# HTML-Ausgabe erstellen
-html_output <- htmltools::browsable(
-  htmltools::tagList(
-    htmltools::tags$div(
-      style = "display: flex; justify-content: space-between;",
-      htmltools::tags$div(
-        flextable::htmltools_value(ft1),
-        style = "margin-right: 10px;"
-      ),
-      htmltools::tags$div(
-        flextable::htmltools_value(ft2),
-        style = "margin-right: 10px;"
-      ),      
-      htmltools::tags$div(
-        flextable::htmltools_value(ft3)
-      )
-    )
-  )
-)
-
-# HTML-Ausgabe anzeigen
-#print(html_output, browse = TRUE)
-html_output
-
-```
-
-:::
-
-Nach dem Bereiningen der iFix-Befundtexte werden die Rechtschreibfehler bestimmter Key-Wörter, die evtl zur Klassifizierung dienen, korrigiert. 
-
-::: {.panel-tabset}
-
-#### Korrektur von *"unauffällig"*
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# Vektor mit uni-Gramen
-unigram <- EPcsv1$Bef.ImFix_cleaned |> 
-  str_split(" ") |>
-  unlist() |> 
-  unique() |> 
-  as.data.frame() |> 
-  setNames("unigram")
-
-tipo.unauff <- unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist("unauffällig", unigram, method = "lv")) |>
-   filter(distance <= 3) |>
-   pull(unigram)|>
-   unique()
-
-
-tipo.unauff <- paste0("\\b(", paste(tipo.unauff, collapse = "|"), ")\\b")
-
-#paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
-
-# alle Bef.ImFix_cleaned, die "unauffällig" ähnlich sind ersetzen
-EPcsv1 <- EPcsv1 |>
-  mutate(
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo.unauff, "unauffällig")
-  )
-
-```
-
-#### Kontrolle vor Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-tipo.unauff
-```
-
-#### Kontrolle nach Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-unigram <- EPcsv1$Bef.ImFix_cleaned |> 
-  str_split(" ") |>
-  unlist() |> 
-  unique() |> 
-  as.data.frame() |> 
-  setNames("unigram")
-
-unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist("unauffällig", unigram, method = "lv")) |>
-   filter(distance <= 3) |>
-   pull(unigram)|>
-   unique()
-
-```
-
-:::
-
-::: {.panel-tabset}
-
-#### Korrektur:  *"vorbefund"*
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-
-
-
-
-tipo <- unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist("vorbefund", unigram, method = "lv")) |>
-   filter(distance <= 3) |>
-   pull(unigram)|>
-   unique()
-
-tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b")
-
-#paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
-
-# alle Bef.ImFix_cleaned, die "unauffällig" ähnlich sind ersetzen
-EPcsv1 <- EPcsv1 |>
-  mutate(
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, "vorbefund")
-  )
-
-```
-
-#### Kontrolle vor Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-tipo
-```
-
-#### Kontrolle nach Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-unigram <- EPcsv1$Bef.ImFix_cleaned |> 
-  str_split(" ") |>
-  unlist() |> 
-  unique() |> 
-  as.data.frame() |> 
-  setNames("unigram")
-
-unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist("vorbefund", unigram, method = "lv")) |>
-   filter(distance <= 3) |>
-   pull(unigram)|>
-   unique()
-
-```
-
-:::
-
-::: {.panel-tabset}
-
-#### Korrektur: *"monoklonal"*
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-
-
-
-
-tipo <- unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist("monoklonal", unigram, method = "lv")) |>
-  filter(!unigram %in% c("polyklonal", "poliklonal", "polyklonale", "oligoklonal", "poliklonale", "plyklonal")) |>
-   filter(distance <= 4) |>
-   pull(unigram)|>
-   unique()
-
-tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b")
-
-#paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
-
-# alle Bef.ImFix_cleaned, die "monoklonal" ähnlich sind ersetzen
-EPcsv1 <- EPcsv1 |>
-  mutate(
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, "monoklonal")
-  )
-
-```
-
-#### Kontrolle vor Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-tipo
-```
-
-#### Kontrolle nach Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-unigram <- EPcsv1$Bef.ImFix_cleaned |> 
-  str_split(" ") |>
-  unlist() |> 
-  unique() |> 
-  as.data.frame() |> 
-  setNames("unigram")
-
-unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist("monoklonal", unigram, method = "lv")) |>
-   filter(distance <= 4) |>
-   pull(unigram)|>
-   unique()
-
-```
-
-:::
-
-
-::: {.panel-tabset}
-
-#### Korrektur: *"polyklonal"*
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-
-
-
-
-tipo <- unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist("polyklonal", unigram, method = "lv")) |>
-   filter(!unigram %in% c("monoklonal", "oligoklonal")) |>
-   filter(distance <= 4) |>
-   pull(unigram)|>
-   unique()
-
-tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b")
-
-#paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
-
-# alle Bef.ImFix_cleaned, die "monoklonal" ähnlich sind ersetzen
-EPcsv1 <- EPcsv1 |>
-  mutate(
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, "polyklonal")
-  )
-
-```
-
-#### Kontrolle vor Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-tipo
-```
-
-#### Kontrolle nach Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-unigram <- EPcsv1$Bef.ImFix_cleaned |> 
-  str_split(" ") |>
-  unlist() |> 
-  unique() |> 
-  as.data.frame() |> 
-  setNames("unigram")
-
-unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist("polyklonal", unigram, method = "lv")) |>
-   filter(distance <= 4) |>
-   pull(unigram)|>
-   unique()
-
-```
-
-:::
-
-
-::: {.panel-tabset}
-
-#### Korrektur *"veränderung"*
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-
-wort <- "veränderung"
-dist <- 2
-
-
-tipo <- unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist(wort, unigram, method = "lv")) |>
-   filter(!unigram %in% c("monoklonal", "oligoklonal")) |>
-   filter(distance <= dist) |>
-   pull(unigram)|>
-   unique()
-
-tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b")
-
-#paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
-
-# alle Bef.ImFix_cleaned, die "wort" ähnlich sind ersetzen
-EPcsv1 <- EPcsv1 |>
-  mutate(
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, wort)
-  )
-
-```
-
-#### Kontrolle vor Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-tipo
-```
-
-#### Kontrolle nach Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-unigram <- EPcsv1$Bef.ImFix_cleaned |> 
-  str_split(" ") |>
-  unlist() |> 
-  unique() |> 
-  as.data.frame() |> 
-  setNames("unigram")
-
-unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist(wort, unigram, method = "lv")) |>
-   filter(distance <= dist) |>
-   pull(unigram)|>
-   unique()
-
-```
-
-:::
-
-
-::: {.panel-tabset}
-
-#### Korrektur *"nachweis"*
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-
-wort <- "nachweis"
-dist <- 3
-
-
-tipo <- unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist(wort, unigram, method = "lv")) |>
-   filter(!unigram %in% c("monoklonal", "oligoklonal")) |>
-   filter(distance <= dist) |>
-   pull(unigram)|>
-   unique()
-
-tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b")
-
-#paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
-
-# alle Bef.ImFix_cleaned, die "monoklonal" ähnlich sind ersetzen
-EPcsv1 <- EPcsv1 |>
-  mutate(
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, wort)
-  )
-
-```
-
-#### Kontrolle vor Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-tipo
-```
-
-#### Kontrolle nach Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-unigram <- EPcsv1$Bef.ImFix_cleaned |> 
-  str_split(" ") |>
-  unlist() |> 
-  unique() |> 
-  as.data.frame() |> 
-  setNames("unigram")
-
-unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist(wort, unigram, method = "lv")) |>
-   filter(distance <= dist) |>
-   pull(unigram)|>
-   unique()
-
-```
-
-:::
-
-::: {.panel-tabset}
-
-#### Korrektur *"immunreaktives"*
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-
-wort <- "immunreaktives"
-dist <- 5
-
-
-tipo <- unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist(wort, unigram, method = "lv")) |>
-   filter(!unigram %in% c("monoklonal", "oligoklonal")) |>
-   filter(distance <= dist) |>
-   pull(unigram)|>
-   unique()
-
-tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b")
-
-#paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b")
-
-# alle Bef.ImFix_cleaned, die "monoklonal" ähnlich sind ersetzen
-EPcsv1 <- EPcsv1 |>
-  mutate(
-    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, wort)
-  )
-
-```
-
-#### Kontrolle vor Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-tipo
-```
-
-#### Kontrolle nach Korrektur
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-
-
-
-unigram <- EPcsv1$Bef.ImFix_cleaned |> 
-  str_split(" ") |>
-  unlist() |> 
-  unique() |> 
-  as.data.frame() |> 
-  setNames("unigram")
-
-unigram |> 
-   na.omit() |>
-   mutate(distance = stringdist(wort, unigram, method = "lv")) |>
-   filter(distance <= dist) |>
-   pull(unigram)|>
-   unique()
-
-```
-
-:::
-
-::: {.panel-tabset}
-
-Nach Bereinigung und Korrektur können die Befundtext tokenisiert werden.  
-
-### Tokenisierung {.justify}
-Beim tokenisieren wird der Befundtext in einzelne Wörter zerlegt, alles auf Kleinbuchstaben umgewandelt und die Wörter als Tri-Grame und Uni-Gramme abgespeichert. Die Trigrame geben den Kontext der Wörter wieder und können als Features für die Klassifizierung verwendet werden.<br>
-Für das kommende Clustering wären Tri-Gramme zwar von Interesse, jedoch hat es von den jeweiligen Trigrammen nur realtiv wenige. Daraus würde eine "sparse matrix" entstehen. Daher werden die Uni-Gramme für das Clustering verwendet.
-
-
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-# Zeilen mit Bef.ImFix_cleaned = "" entfernen
-EPcsv1 <- EPcsv1 |> 
-  filter(Bef.ImFix_cleaned != "")
-#--------------------------------------------------------------------------------
-# speichern des EPcsv1 -Stopwörtern enhalten -Interpunktion enthalten, Gruss-Kleinschreibung enthalten. Speichern der Spalten ID und Bef.ImFix_cleaned für GPT-4o
-EPcsv_gpt <- EPcsv1|> 
-  mutate(BefImFix = Bef.ImFix_cleaned) |>
-  select(ID, BefImFix)
-saveRDS(EPcsv_gpt, "EPcsv_gpt.rds")
-
-
-write.csv(EPcsv_gpt, "EP.csv")
-#-------------------------------------------------------------------------------
-EPcsv3 <- EPcsv1|> 
-  unnest_tokens(trigram, Bef.ImFix_cleaned, token = "ngrams", n = 3, to_lower =TRUE, drop = FALSE)
-
-EPcsv.uni <- EPcsv1|> 
-  unnest_tokens(trigram, Bef.ImFix_cleaned, to_lower =TRUE, drop = FALSE)
-
-
-
-```
-
-### Häufigste Unigramme {.justify}
-```{r, echo=TRUE, message=FALSE, warning=FALSE}
-#| label: tbl-trigram
-#| tbl-cap: Häufigste Unigramme in den Befundtexten
-
-EPcsv.uni <- readRDS("EPcsv.uni.rds")
-  
-#Bef.ImFix.freq.ngram <- 
-EPcsv.uni |> 
-  count(trigram, sort = FALSE) |> 
-  arrange(desc(n)) |>
-  head(50) |>
-  flextable() |> 
-  width(j = 1, width = 3.5)
-  
-```
-
-
-
-:::
-
-
-
-## Erstellen neuer Daten {.justify}
-
-### Clustering und Klassifizierung der Befundtexte {.justify}
-Als "ground truth" für die Auswertung der Chromatogramme dienen die Befundtexte der Immunfixationen. Diese Befundtext werden im folgenden geclustert und klassifiziert.
-
-#### Unsupervised Clustering mit K-Means {.justify}
-
-
-
-
-<!-- Zuerst werden die strings "unauffällig" von EP.csv3$Bef.ImFix_cleaned nach trigrams kopiert -->
 <!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- # erkennen der Einträge mit "unauffällig" und einschreiben von "unauffällig" in trigram ein -->
-<!-- EPcsv3$trigram <- ifelse(grepl("^unauffällig$", EPcsv3$Bef.ImFix_cleaned), "unauffällig", EPcsv3$trigram) -->
-<!-- EPcsv3$trigram <- ifelse(grepl("^unauffällig hypogammaglobulinämie$", EPcsv3$Bef.ImFix_cleaned), "unauffällig hypogammaglobulinämie", EPcsv3$trigram) -->
+<!-- # Erstellen der Stopwörterliste -->
+<!-- library(tidytext) -->
+<!-- library(stringr) -->
+<!-- library(stopwords) -->
+
+<!-- # Monate als Stopwörter -->
+<!-- monate <- c( -->
+<!--   "Januar", "Jan", -->
+<!--   "Februar", "Feb", -->
+<!--   "März", "März", -->
+<!--   "April", "Apr", -->
+<!--   "Mai", "Mai", -->
+<!--   "Juni", "Jun", -->
+<!--   "Juli", "Jul", -->
+<!--   "August", "Aug", -->
+<!--   "September", "Sept", -->
+<!--   "Oktober", "Okt", -->
+<!--   "November", "Nov", -->
+<!--   "Dezember", "Dez", -->
+<!--   "Monat", "Monaten" -->
+<!-- ) |>  -->
+<!--   paste(collapse = "|") -->
+
+<!-- # Stopwörterliste aus den Befunden (manuell ergänzt) -->
+<!-- ad.string <- c("ist die quantitative Bestimmung der aus der aktuellen Serumprobe und oder eine Verlaufskontrolle zu empfehlen Homogene Unspezifischer Befund vereinbar mit einer sowie der isolierten einer äusserst diskreten und diffusen in den Spuren für sicheren Je nach klinischem Kontext ist eine Verlaufskontrolle zu empfehlen und bedingt einen modifizierten Ansatz Das initial berichtete endogene Weiterhin schwacher des vorbekannten sowie der zusätzlichen diskreten in den Spuren wesentliche des stark ausgeprägten Mobilität sowie des sehr schwach ausgeprägten leicht einer äusserst diskreten und diffusen Befund mit einer schwach ausgeprägten diskret diffusen bekannten Bei unklarer Ätiologie Verlaufskontrolle diskreter Bei Ätiologie Verlaufskontrolle Typ Verlaufskontrolle B RGB initialen klin kb dv zusätzlich diskrete bekannte diskrete übrigen zeigt leichte passager klinik abklingen disret inhomogener transitorisch starken abklärung verdünnungsanalyse durchgeführt momentan extra peak beta fraktionen interferenz kontrastmittel medikamente handeln hinweis bitte markieren markieren analyse auftragsformular nicht gewünscht unserem prozess ep if automatisch gleichzeitig angesetzt danken verständnis zwischenbericht multipler ausgeprägter abklärung modifzierter durchgeführt vermutlich eher bedingter erwägen igg iga igm kappa lambda untan unten utnen pki osp maz kek") -->
+
+<!-- # stopwords anpassen, da in den tokens "nicht", "kein", "ohne" und Varianten  -->
+<!-- # enthalten bleiben sollen -->
+<!-- stopwords.olli <- stopwords("de", "stopwords-iso") -->
+
+<!-- stopwords.olli <- c( -->
+<!--                       stopwords.olli, ad.string |> -->
+<!--                       str_split(" ") |> -->
+<!--                       unlist(), monate -->
+<!--                     ) |> -->
+<!--   tolower() |> -->
+<!--   unique() |> -->
+<!--   setdiff("") |> -->
+<!--   sort() -->
+
+<!-- stopwords.olli <- setdiff(stopwords.olli,  -->
+<!--                           c("nicht", -->
+<!--                             "nichts", -->
+<!--                             "keine",  -->
+<!--                             "kein",  -->
+<!--                             "keinem",  -->
+<!--                             "keinen",  -->
+<!--                             "keiner",  -->
+<!--                             "keines",  -->
+<!--                             "ohne", -->
+<!--                             "und?")) -->
 <!-- ``` -->
 
-##### Tri-Gramme extrahieren und clustern
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-# Tri-Gramme extrahieren
-tri.grams <- EPcsv.uni |> 
-  select(ID, trigram) |>
-  count(ID, trigram, sort = TRUE) |> 
-  arrange(ID) 
 
-# Tri-Gramme in Matrix umwandeln
-tri.grams.matrix <- tri.grams |> 
-  pivot_wider(names_from = trigram, values_from = n, values_fill = 0) |> 
-  select(-ID) |> 
-  as.matrix()
-```
+<!-- ### Stopwörterliste -->
+
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- (stopwords.olli) -->
+<!-- ``` -->
+
+
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- stopwords.olli.col <- paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b") -->
 
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-library(furrr)
-library(future)
+
+<!-- ``` -->
 
-plan(multisession, workers = 10)
 
-set.seed(8173)
-wss <- future_map_dbl(
-  1:10, 
-  ~ kmeans(tri.grams.matrix, centers = ., nstart = 25)$tot.withinss,
-  .options = furrr_options(seed = TRUE)
-)
+<!-- ### Bereinigte iFix-Befundtexte {.justify} -->
 
-plan(sequential)
 
-saveRDS(wss, "wss.rds")
-```
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- EPcsv1 <- EPcsv1 |> -->
+<!--   mutate( -->
+<!--     Bef.ImFix_cleaned = gsub("\\([^)]*\\)", "", Bef.ImFix), -->
+<!--     Bef.ImFix_cleaned = gsub("[0-9]+", "", Bef.ImFix_cleaned), -->
+<!--     #Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, monate, ""), -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "[[:punct:]]", " "), -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, " +", " "), -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "°", ""),     -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\b(mono)?klonale?n?s? Proteine?n?s?\\b", "M-Protein"), -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "\\bM Proteine?n?s?\\b", "M-Protein"), -->
+<!--     Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned), -->
+<!--     Bef.ImFix_cleaned = tolower(Bef.ImFix_cleaned), -->
+<!--     #Bef.ImFix_cleaned = gsub(stopwords.olli.col, "", Bef.ImFix_cleaned), -->
+<!--     Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned) -->
+<!--    ) -->
+<!-- ``` -->
+
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: tbl-cleaned -->
+<!-- #| tbl-cap: Datenüberblick nach der Bereinigung der Befundtexte -->
+
+<!-- Bef.ImFix.freq <- EPcsv1 |>  -->
+<!--   count(Bef.ImFix_cleaned, sort = TRUE) |>  -->
+<!--   arrange(Bef.ImFix_cleaned) -->
+
+<!-- ft1 <- Bef.ImFix.freq[1461:1490,] |>  -->
+<!--   arrange(desc(n)) |> -->
+<!--   #head(20) |>  -->
+<!--   flextable() -->
 
+<!-- ft2 <- Bef.ImFix.freq[1611:1640,] |>  -->
+<!--   arrange(desc(n)) |> -->
+<!--   #head(20) |>  -->
+<!--   flextable() -->
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-cluster
-#| fig-cap: Elbow-Plot
+<!-- ft3 <- Bef.ImFix.freq[1931:1960,] |>  -->
+<!--   arrange(desc(n)) |> -->
+<!--   #head(20) |>  -->
+<!--   flextable() -->
 
-wss <- readRDS("wss.rds")
+<!-- # HTML-Ausgabe erstellen -->
+<!-- html_output <- htmltools::browsable( -->
+<!--   htmltools::tagList( -->
+<!--     htmltools::tags$div( -->
+<!--       style = "display: flex; justify-content: space-between;", -->
+<!--       htmltools::tags$div( -->
+<!--         flextable::htmltools_value(ft1), -->
+<!--         style = "margin-right: 10px;" -->
+<!--       ), -->
+<!--       htmltools::tags$div( -->
+<!--         flextable::htmltools_value(ft2), -->
+<!--         style = "margin-right: 10px;" -->
+<!--       ),       -->
+<!--       htmltools::tags$div( -->
+<!--         flextable::htmltools_value(ft3) -->
+<!--       ) -->
+<!--     ) -->
+<!--   ) -->
+<!-- ) -->
 
-# Elbow-Plot
-plot(1:10, wss, type = "b", pch = 19, frame = FALSE,
-     xlab = "Anzahl der Cluster",
-     ylab = "Within-Cluster Sum of Squares (WSS)",
-     main = "")
-```
+<!-- # HTML-Ausgabe anzeigen -->
+<!-- #print(html_output, browse = TRUE) -->
+<!-- html_output -->
 
+<!-- ``` -->
 
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+<!-- ::: -->
 
+<!-- Nach dem Bereiningen der iFix-Befundtexte werden die Rechtschreibfehler bestimmter Key-Wörter, die evtl zur Klassifizierung dienen, korrigiert.  -->
 
-library(furrr)
-library(future)
-library(tibble)
+<!-- ::: {.panel-tabset} -->
 
-plan(multisession, workers = 4)
+<!-- #### Korrektur von *"unauffällig"* -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- # Vektor mit uni-Gramen -->
+<!-- unigram <- EPcsv1$Bef.ImFix_cleaned |>  -->
+<!--   str_split(" ") |> -->
+<!--   unlist() |>  -->
+<!--   unique() |>  -->
+<!--   as.data.frame() |>  -->
+<!--   setNames("unigram") -->
 
-set.seed(8173)
+<!-- tipo.unauff <- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist("unauffällig", unigram, method = "lv")) |> -->
+<!--    filter(distance <= 3) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
 
-# verschiedene Werte für nstart
-nstart_values <- c(1, 5, 10, 25 #, 50, 100
-                   )
 
-# K-Means mit verschiedenen nstart-Werten parallelisiert
-results.nstart <- future_map_dfr(nstart_values, function(nstart) {
-  model <- kmeans(tri.grams.matrix, centers = 4, nstart = nstart)
-  tibble(nstart = nstart, tot_withinss = model$tot.withinss)
-}, .options = furrr_options(seed = TRUE))
+<!-- tipo.unauff <- paste0("\\b(", paste(tipo.unauff, collapse = "|"), ")\\b") -->
 
-# results <- map_dfr(nstart_values, function(nstart) {
-#   model <- kmeans(tri.grams.matrix, centers = 4, nstart = nstart)
-#   tibble(nstart = nstart, tot_withinss = model$tot.withinss)
-# })
+<!-- #paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b") -->
 
-plan(sequential)
+<!-- # alle Bef.ImFix_cleaned, die "unauffällig" ähnlich sind ersetzen -->
+<!-- EPcsv1 <- EPcsv1 |> -->
+<!--   mutate( -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo.unauff, "unauffällig") -->
+<!--   ) -->
 
-saveRDS(results.nstart, "results_nstart.rds")
+<!-- ``` -->
 
-```
+<!-- #### Kontrolle vor Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- tipo.unauff -->
+<!-- ``` -->
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-nstart
-#| fig-cap: Optimierung von nstart
+<!-- #### Kontrolle nach Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- unigram <- EPcsv1$Bef.ImFix_cleaned |>  -->
+<!--   str_split(" ") |> -->
+<!--   unlist() |>  -->
+<!--   unique() |>  -->
+<!--   as.data.frame() |>  -->
+<!--   setNames("unigram") -->
 
-results.nstart <- readRDS("results_nstart.rds")
-# Plot der Ergebnisse
-ggplot(results.nstart, aes(x = nstart, y = tot_withinss)) +
-  geom_line() +
-  geom_point() +
-  labs(title = "",
-       x = "nstart",
-       y = "Totale Within-Cluster Sum of Squares") +
-  theme_minimal()
-```
+<!-- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist("unauffällig", unigram, method = "lv")) |> -->
+<!--    filter(distance <= 3) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
 
+<!-- ``` -->
 
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-# K-Means Clustering
-set.seed(8173)
-kmeans_model.c3 <- kmeans(tri.grams.matrix, centers = 3, nstart = 25)
-kmeans_model.c4 <- kmeans(tri.grams.matrix, centers = 4, nstart = 25)
-kmeans_model.c5 <- kmeans(tri.grams.matrix, centers = 5, nstart = 25)
-#kmeans_model.c6 <- kmeans(tri.grams.matrix, centers = 6, nstart = 25)
-
-
-
-
-
-# Cluster zuordnen
-EPcsv1 <- EPcsv1 |> 
-  mutate(cluster3 = kmeans_model.c3$cluster#,
-         cluster4 = kmeans_model.c4$cluster,
-         cluster5 = kmeans_model.c5$cluster
-         )
-```
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-
-
-EPcsv1 <- readRDS("dev.df1.rds")
-
-library(wordcloud)
-cluster3.ngrams <- EPcsv1 |> 
-  select(ID, cluster3, Bef.ImFix_cleaned) |>
-  mutate(cluster3 = as.factor(cluster3)) |>
-  count(cluster3, Bef.ImFix_cleaned, name = "n", sort = TRUE) |>
-  group_by(cluster3, Bef.ImFix_cleaned)  |> 
-  summarise(frequency = sum(n), .groups = "drop") 
-
-
-  
-
-# Wortwolke pro Cluster
-#par(mfrow=c(2,2))
-# set.seed(5173)
-# cluster3.ngrams |> 
-#   filter(cluster3 == 1)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 20, colors = brewer.pal(8, "Dark2")))
-# 
-# cluster3.ngrams |> 
-#   filter(cluster3 == 2)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-# 
-# cluster3.ngrams |> 
-#   filter(cluster3 == 3)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-
-
-```
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-3cluster in barplot
-#| fig-cap: 3 Cluster - Barplot
-
-
-cluster3.ngrams |> 
-  group_by(cluster3) |> 
-  slice_max(order_by = frequency, n = 10) |> 
-  arrange(cluster3, frequency) |> # Sortiere nach Cluster und Häufigkeit
-  mutate(Bef.ImFix_cleaned = factor(Bef.ImFix_cleaned, levels = unique(Bef.ImFix_cleaned))) |> 
-  ggplot(aes(x = Bef.ImFix_cleaned, y = frequency, fill = factor(cluster3))) +
-  geom_bar(stat = "identity") +
-  scale_y_log10() +
-  coord_flip() +
-  labs(title = "Häufigste Tri-Gramme pro Cluster",
-       x = "texte",
-       y = "Häufigkeit") +
-  theme_minimal()
-
-```
-
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-
-
-library(wordcloud)
-cluster4.ngrams <- EPcsv1 |> 
-  select(ID, cluster4, Bef.ImFix_cleaned) |>
-  count(cluster4, Bef.ImFix_cleaned, name = "n", sort = TRUE) |>
-  group_by(cluster4, Bef.ImFix_cleaned)  |> 
-  summarise(frequency = sum(n), .groups = "drop")
-
-# Wortwolke pro Cluster
-#par(mfrow=c(2,2))
-# set.seed(8173)
-# cluster4.ngrams |> 
-#   filter(cluster4 == 1)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2")))
-# 
-# cluster4.ngrams |> 
-#   filter(cluster4 == 2)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-# 
-# cluster4.ngrams |> 
-#   filter(cluster4 == 3)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-# 
-# cluster4.ngrams |> 
-#   filter(cluster4 == 4)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-```
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-4cluster in barplot
-#| fig-cap: 4 Cluster - Barplot
-
-
-cluster4.ngrams |> 
-  group_by(cluster4) |> 
-  slice_max(order_by = frequency, n = 10) |> 
-  arrange(cluster4, desc(frequency)) |> # Sortiere nach Cluster und Häufigkeit
-  mutate(Bef.ImFix_cleaned = factor(Bef.ImFix_cleaned, levels = unique(Bef.ImFix_cleaned))) |> 
-  ggplot(aes(x = Bef.ImFix_cleaned, y = frequency, fill = factor(cluster4))) +
-  geom_bar(stat = "identity") +
-  scale_y_log10() +
-  coord_flip() +
-  labs(title = "Häufigste Tri-Gramme pro Cluster",
-       x = "texte",
-       y = "Häufigkeit") +
-  theme_minimal()
-
-```
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-5cluster in wordcloud
-#| fig-cap: 5 Cluster - Wortwolken
-
-library(wordcloud)
-cluster5.ngrams <- EPcsv1 |> 
-  select(ID, cluster5, Bef.ImFix_cleaned) |>
-  count(cluster5, Bef.ImFix_cleaned, name = "n", sort = TRUE) |>
-  group_by(cluster5, Bef.ImFix_cleaned)  |> 
-  summarise(frequency = sum(n), .groups = "drop")
-
-# Wortwolke pro Cluster
-#par(mfrow=c(2,2))
-# set.seed(173)
-# cluster5.ngrams |> 
-#   filter(cluster5 == 1)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 30, colors = brewer.pal(8, "Dark2")))
-# 
-# cluster5.ngrams |> 
-#   filter(cluster5 == 2)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2")))
-# 
-# cluster5.ngrams |> 
-#   filter(cluster5 == 3)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-# 
-# cluster5.ngrams |> 
-#   filter(cluster5 == 4)  |> 
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2")))
-# 
-# cluster5.ngrams |> 
-#   filter(cluster5 == 5)  |> 
-#   arrange(desc(frequency)) |>
-#   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2")))
-```
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-5cluster in barplot
-#| fig-cap: 5 Cluster - Barplot
-
-
-cluster5.ngrams |> 
-  group_by(cluster5) |> 
-  slice_max(order_by = frequency, n = 4) |> 
-  arrange(cluster5, frequency) |> 
-  mutate(Bef.ImFix_cleaned = factor(Bef.ImFix_cleaned, levels = unique(Bef.ImFix_cleaned))) |> 
-  ggplot(aes(x = Bef.ImFix_cleaned, y = frequency, fill = factor(cluster5))) +
-  geom_bar(stat = "identity") +
-  scale_y_log10() +
-  coord_flip() +
-  labs(title = "Häufigste Tri-Gramme pro Cluster",
-       x = "texte",
-       y = "Häufigkeit") +
-  theme_minimal()
-
-
-# Funktion, um Text auf maximal 10 Wörter zu kürzen
-shorten.text <- function(text, max.words = 7) {
-  words <- unlist(strsplit(text, "\\s+")) # Text in Wörter aufteilen
-  if (length(words) > max.words) {
-    paste0(paste(words[1:max.words], collapse = " "), "...")
-  } else {
-    text
-  }
-}
-
-cluster5.ngrams |> 
-  group_by(cluster5) |> 
-  slice_max(order_by = frequency, n = 8) |> 
-  mutate(
-    Bef.ImFix_cleaned.short = sapply(Bef.ImFix_cleaned, shorten.text), # Texte kürzen
-    Bef.ImFix_cleaned.short = factor(Bef.ImFix_cleaned.short, levels = unique(Bef.ImFix_cleaned.short))
-  ) |> 
-  ggplot(aes(x = Bef.ImFix_cleaned.short, y = frequency, fill = factor(cluster5))) +
-  geom_bar(stat = "identity") +
-  scale_y_log10() +
-  coord_flip() +
-  labs(title = "Häufigste Texte pro Cluster",
-       x = "texte",
-       y = "Häufigkeit") +
-  theme_minimal()
-
-```
-
-#### Clusterzuordnung der Befundtexte als Klassifizierung
-
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-# Cluster-Zuordnung
-EPcsv1  <-  EPcsv1 |> 
-  mutate(
-    Klassifizierung = case_when(
-      cluster3 == 1 ~ "MGradient",
-      cluster3 == 2 ~ "unauffällig",
-      cluster3 == 3 ~ "suspicous"
-    )|> 
-  as.factor()
-  ) 
-
-# Speichern der Cluster und Klassifizierung
-saveRDS(EPcsv1, "EPcsv1.rds")
-saveRDS(EPcsv3, "EPcsv3.rds")
-saveRDS(EPcsv.uni, "EPcsv.uni.rds")
-```
-
-
-
-
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-class_distribution
-#| fig-cap: Verteilung der Klassifizierungen
-
-EPcsv1 <- readRDS("~/CAS-EP&ML/dev_df1.rds")
-# Anzahl der 3 verschiedenen Klassifizierungen als Barplot und Tabelle
-EPcsv1 |> 
-  ggplot(aes(x = Klassifizierung, fill = factor(cluster3))) +
-  geom_bar() +
-  labs(title = "Klassifizierung der Befundtexte",
-       x = "Klassifizierung",
-       y = "Anzahl") +
-  coord_flip() +
-  theme_minimal()
-```
-
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: tbl-class_distribution
-#| tbl-cap: Verteilung der Klassifizierungen
-
-
-ft <- EPcsv1 |> 
-  count(Klassifizierung) |> 
-  flextable() |>
-  width(j = 1, width = 3.5)
-ft
-
-```
-  
-```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE}
-
-
-# 24-01-10 neue cluster Zuordnung
-EPcsv.km.unauf  <-  EPcsv1 |> 
-  select(ID, Bef.EP, Bef.ImFix, Bef.ImFix_cleaned, cluster3) |>
-  mutate(
-    Klassifizierung = case_when(
-      grepl("unauffällig", Bef.ImFix_cleaned, ignore.case = T) ~ "unauffällig",
-      cluster3 == 1 ~ "MGradient",
-      #cluster3 == 2 ~ "unauffällig",
-      cluster3 == 3 ~ "suspicous"
-    )|> 
-  as.factor()
-  )
-
-ft <- EPcsv.km.unauf |> 
-  count(Klassifizierung) |> 
-  flextable() |>
-  width(j = 1, width = 3.5)
-ft
-
-# dieser Ansatz verbessert die Zuordnung der tatsächlich unauffälligen Befunde, 
-#aber es bringt die Gruppe nicht eindeutig formulierter Befunde mit "NA" hervor, 
-# zBsp: "keine Veränderung zum Vorbefund", "Bande in Schwere und leichte Kette"
-```
-<br>
-
-<br>
+<!-- ::: -->
+
+<!-- ::: {.panel-tabset} -->
+
+<!-- #### Korrektur:  *"vorbefund"* -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+
+
+
+
+<!-- tipo <- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist("vorbefund", unigram, method = "lv")) |> -->
+<!--    filter(distance <= 3) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b") -->
+
+<!-- #paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b") -->
+
+<!-- # alle Bef.ImFix_cleaned, die "unauffällig" ähnlich sind ersetzen -->
+<!-- EPcsv1 <- EPcsv1 |> -->
+<!--   mutate( -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, "vorbefund") -->
+<!--   ) -->
+
+<!-- ``` -->
+
+<!-- #### Kontrolle vor Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- tipo -->
+<!-- ``` -->
+
+<!-- #### Kontrolle nach Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- unigram <- EPcsv1$Bef.ImFix_cleaned |>  -->
+<!--   str_split(" ") |> -->
+<!--   unlist() |>  -->
+<!--   unique() |>  -->
+<!--   as.data.frame() |>  -->
+<!--   setNames("unigram") -->
+
+<!-- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist("vorbefund", unigram, method = "lv")) |> -->
+<!--    filter(distance <= 3) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- ::: {.panel-tabset} -->
+
+<!-- #### Korrektur: *"monoklonal"* -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+
+
+
+
+<!-- tipo <- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist("monoklonal", unigram, method = "lv")) |> -->
+<!--   filter(!unigram %in% c("polyklonal", "poliklonal", "polyklonale", "oligoklonal", "poliklonale", "plyklonal")) |> -->
+<!--    filter(distance <= 4) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b") -->
+
+<!-- #paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b") -->
+
+<!-- # alle Bef.ImFix_cleaned, die "monoklonal" ähnlich sind ersetzen -->
+<!-- EPcsv1 <- EPcsv1 |> -->
+<!--   mutate( -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, "monoklonal") -->
+<!--   ) -->
+
+<!-- ``` -->
+
+<!-- #### Kontrolle vor Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- tipo -->
+<!-- ``` -->
+
+<!-- #### Kontrolle nach Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- unigram <- EPcsv1$Bef.ImFix_cleaned |>  -->
+<!--   str_split(" ") |> -->
+<!--   unlist() |>  -->
+<!--   unique() |>  -->
+<!--   as.data.frame() |>  -->
+<!--   setNames("unigram") -->
+
+<!-- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist("monoklonal", unigram, method = "lv")) |> -->
+<!--    filter(distance <= 4) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- ``` -->
+
+<!-- ::: -->
+
+
+<!-- ::: {.panel-tabset} -->
+
+<!-- #### Korrektur: *"polyklonal"* -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+
+
+
+
+<!-- tipo <- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist("polyklonal", unigram, method = "lv")) |> -->
+<!--    filter(!unigram %in% c("monoklonal", "oligoklonal")) |> -->
+<!--    filter(distance <= 4) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b") -->
+
+<!-- #paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b") -->
+
+<!-- # alle Bef.ImFix_cleaned, die "monoklonal" ähnlich sind ersetzen -->
+<!-- EPcsv1 <- EPcsv1 |> -->
+<!--   mutate( -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, "polyklonal") -->
+<!--   ) -->
+
+<!-- ``` -->
+
+<!-- #### Kontrolle vor Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- tipo -->
+<!-- ``` -->
+
+<!-- #### Kontrolle nach Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- unigram <- EPcsv1$Bef.ImFix_cleaned |>  -->
+<!--   str_split(" ") |> -->
+<!--   unlist() |>  -->
+<!--   unique() |>  -->
+<!--   as.data.frame() |>  -->
+<!--   setNames("unigram") -->
+
+<!-- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist("polyklonal", unigram, method = "lv")) |> -->
+<!--    filter(distance <= 4) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- ``` -->
+
+<!-- ::: -->
+
+
+<!-- ::: {.panel-tabset} -->
+
+<!-- #### Korrektur *"veränderung"* -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+
+<!-- wort <- "veränderung" -->
+<!-- dist <- 2 -->
+
+
+<!-- tipo <- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist(wort, unigram, method = "lv")) |> -->
+<!--    filter(!unigram %in% c("monoklonal", "oligoklonal")) |> -->
+<!--    filter(distance <= dist) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b") -->
+
+<!-- #paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b") -->
+
+<!-- # alle Bef.ImFix_cleaned, die "wort" ähnlich sind ersetzen -->
+<!-- EPcsv1 <- EPcsv1 |> -->
+<!--   mutate( -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, wort) -->
+<!--   ) -->
+
+<!-- ``` -->
+
+<!-- #### Kontrolle vor Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- tipo -->
+<!-- ``` -->
+
+<!-- #### Kontrolle nach Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- unigram <- EPcsv1$Bef.ImFix_cleaned |>  -->
+<!--   str_split(" ") |> -->
+<!--   unlist() |>  -->
+<!--   unique() |>  -->
+<!--   as.data.frame() |>  -->
+<!--   setNames("unigram") -->
+
+<!-- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist(wort, unigram, method = "lv")) |> -->
+<!--    filter(distance <= dist) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- ``` -->
+
+<!-- ::: -->
+
+
+<!-- ::: {.panel-tabset} -->
+
+<!-- #### Korrektur *"nachweis"* -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+
+<!-- wort <- "nachweis" -->
+<!-- dist <- 3 -->
+
+
+<!-- tipo <- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist(wort, unigram, method = "lv")) |> -->
+<!--    filter(!unigram %in% c("monoklonal", "oligoklonal")) |> -->
+<!--    filter(distance <= dist) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b") -->
+
+<!-- #paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b") -->
+
+<!-- # alle Bef.ImFix_cleaned, die "monoklonal" ähnlich sind ersetzen -->
+<!-- EPcsv1 <- EPcsv1 |> -->
+<!--   mutate( -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, wort) -->
+<!--   ) -->
+
+<!-- ``` -->
+
+<!-- #### Kontrolle vor Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- tipo -->
+<!-- ``` -->
+
+<!-- #### Kontrolle nach Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- unigram <- EPcsv1$Bef.ImFix_cleaned |>  -->
+<!--   str_split(" ") |> -->
+<!--   unlist() |>  -->
+<!--   unique() |>  -->
+<!--   as.data.frame() |>  -->
+<!--   setNames("unigram") -->
+
+<!-- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist(wort, unigram, method = "lv")) |> -->
+<!--    filter(distance <= dist) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- ::: {.panel-tabset} -->
+
+<!-- #### Korrektur *"immunreaktives"* -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+
+<!-- wort <- "immunreaktives" -->
+<!-- dist <- 5 -->
+
+
+<!-- tipo <- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist(wort, unigram, method = "lv")) |> -->
+<!--    filter(!unigram %in% c("monoklonal", "oligoklonal")) |> -->
+<!--    filter(distance <= dist) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- tipo <- paste0("\\b(", paste(tipo, collapse = "|"), ")\\b") -->
+
+<!-- #paste0("\\b(", paste(stopwords.olli, collapse = "|"), ")\\b") -->
+
+<!-- # alle Bef.ImFix_cleaned, die "monoklonal" ähnlich sind ersetzen -->
+<!-- EPcsv1 <- EPcsv1 |> -->
+<!--   mutate( -->
+<!--     Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, tipo, wort) -->
+<!--   ) -->
+
+<!-- ``` -->
+
+<!-- #### Kontrolle vor Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- tipo -->
+<!-- ``` -->
+
+<!-- #### Kontrolle nach Korrektur -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+
+
+
+<!-- unigram <- EPcsv1$Bef.ImFix_cleaned |>  -->
+<!--   str_split(" ") |> -->
+<!--   unlist() |>  -->
+<!--   unique() |>  -->
+<!--   as.data.frame() |>  -->
+<!--   setNames("unigram") -->
+
+<!-- unigram |>  -->
+<!--    na.omit() |> -->
+<!--    mutate(distance = stringdist(wort, unigram, method = "lv")) |> -->
+<!--    filter(distance <= dist) |> -->
+<!--    pull(unigram)|> -->
+<!--    unique() -->
+
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- ::: {.panel-tabset} -->
+
+<!-- Nach Bereinigung und Korrektur können die Befundtext tokenisiert werden.   -->
+
+<!-- ### Tokenisierung {.justify} -->
+<!-- Beim tokenisieren wird der Befundtext in einzelne Wörter zerlegt, alles auf Kleinbuchstaben umgewandelt und die Wörter als Tri-Grame und Uni-Gramme abgespeichert. Die Trigrame geben den Kontext der Wörter wieder und können als Features für die Klassifizierung verwendet werden.<br> -->
+<!-- Für das kommende Clustering wären Tri-Gramme zwar von Interesse, jedoch hat es von den jeweiligen Trigrammen nur realtiv wenige. Daraus würde eine "sparse matrix" entstehen. Daher werden die Uni-Gramme für das Clustering verwendet. -->
+
+
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- # Zeilen mit Bef.ImFix_cleaned = "" entfernen -->
+<!-- EPcsv1 <- EPcsv1 |>  -->
+<!--   filter(Bef.ImFix_cleaned != "") -->
+<!-- #-------------------------------------------------------------------------------- -->
+<!-- # speichern des EPcsv1 -Stopwörtern enhalten -Interpunktion enthalten, Gruss-Kleinschreibung enthalten. Speichern der Spalten ID und Bef.ImFix_cleaned für GPT-4o -->
+<!-- EPcsv_gpt <- EPcsv1|>  -->
+<!--   mutate(BefImFix = Bef.ImFix_cleaned) |> -->
+<!--   select(ID, BefImFix) -->
+<!-- saveRDS(EPcsv_gpt, "EPcsv_gpt.rds") -->
+
+
+<!-- write.csv(EPcsv_gpt, "EP.csv") -->
+<!-- #------------------------------------------------------------------------------- -->
+<!-- EPcsv3 <- EPcsv1|>  -->
+<!--   unnest_tokens(trigram, Bef.ImFix_cleaned, token = "ngrams", n = 3, to_lower =TRUE, drop = FALSE) -->
+
+<!-- EPcsv.uni <- EPcsv1|>  -->
+<!--   unnest_tokens(trigram, Bef.ImFix_cleaned, to_lower =TRUE, drop = FALSE) -->
+
+
+
+<!-- ``` -->
+
+<!-- ### Häufigste Unigramme {.justify} -->
+<!-- ```{r, echo=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: tbl-trigram -->
+<!-- #| tbl-cap: Häufigste Unigramme in den Befundtexten -->
+
+<!-- EPcsv.uni <- readRDS("EPcsv.uni.rds") -->
+
+<!-- #Bef.ImFix.freq.ngram <-  -->
+<!-- EPcsv.uni |>  -->
+<!--   count(trigram, sort = FALSE) |>  -->
+<!--   arrange(desc(n)) |> -->
+<!--   head(50) |> -->
+<!--   flextable() |>  -->
+<!--   width(j = 1, width = 3.5) -->
+
+<!-- ``` -->
+
+
+
+<!-- ::: -->
+
+
+
+<!-- ## Erstellen neuer Daten {.justify} -->
+
+<!-- ### Clustering und Klassifizierung der Befundtexte {.justify} -->
+<!-- Als "ground truth" für die Auswertung der Chromatogramme dienen die Befundtexte der Immunfixationen. Diese Befundtext werden im folgenden geclustert und klassifiziert. -->
+
+<!-- #### Unsupervised Clustering mit K-Means {.justify} -->
+
+
+
+
+<!-- <!-- Zuerst werden die strings "unauffällig" von EP.csv3$Bef.ImFix_cleaned nach trigrams kopiert --> -->
+<!-- <!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} --> -->
+<!-- <!-- # erkennen der Einträge mit "unauffällig" und einschreiben von "unauffällig" in trigram ein --> -->
+<!-- <!-- EPcsv3$trigram <- ifelse(grepl("^unauffällig$", EPcsv3$Bef.ImFix_cleaned), "unauffällig", EPcsv3$trigram) --> -->
+<!-- <!-- EPcsv3$trigram <- ifelse(grepl("^unauffällig hypogammaglobulinämie$", EPcsv3$Bef.ImFix_cleaned), "unauffällig hypogammaglobulinämie", EPcsv3$trigram) --> -->
+<!-- <!-- ``` --> -->
+
+<!-- ##### Tri-Gramme extrahieren und clustern -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- # Tri-Gramme extrahieren -->
+<!-- tri.grams <- EPcsv.uni |>  -->
+<!--   select(ID, trigram) |> -->
+<!--   count(ID, trigram, sort = TRUE) |>  -->
+<!--   arrange(ID)  -->
+
+<!-- # Tri-Gramme in Matrix umwandeln -->
+<!-- tri.grams.matrix <- tri.grams |>  -->
+<!--   pivot_wider(names_from = trigram, values_from = n, values_fill = 0) |>  -->
+<!--   select(-ID) |>  -->
+<!--   as.matrix() -->
+<!-- ``` -->
+
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- library(furrr) -->
+<!-- library(future) -->
+
+<!-- plan(multisession, workers = 10) -->
+
+<!-- set.seed(8173) -->
+<!-- wss <- future_map_dbl( -->
+<!--   1:10,  -->
+<!--   ~ kmeans(tri.grams.matrix, centers = ., nstart = 25)$tot.withinss, -->
+<!--   .options = furrr_options(seed = TRUE) -->
+<!-- ) -->
+
+<!-- plan(sequential) -->
+
+<!-- saveRDS(wss, "wss.rds") -->
+<!-- ``` -->
+
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: fig-cluster -->
+<!-- #| fig-cap: Elbow-Plot -->
+
+<!-- wss <- readRDS("wss.rds") -->
+
+<!-- # Elbow-Plot -->
+<!-- plot(1:10, wss, type = "b", pch = 19, frame = FALSE, -->
+<!--      xlab = "Anzahl der Cluster", -->
+<!--      ylab = "Within-Cluster Sum of Squares (WSS)", -->
+<!--      main = "") -->
+<!-- ``` -->
+
+
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+
+
+<!-- library(furrr) -->
+<!-- library(future) -->
+<!-- library(tibble) -->
+
+<!-- plan(multisession, workers = 4) -->
+
+<!-- set.seed(8173) -->
+
+<!-- # verschiedene Werte für nstart -->
+<!-- nstart_values <- c(1, 5, 10, 25 #, 50, 100 -->
+<!--                    ) -->
+
+<!-- # K-Means mit verschiedenen nstart-Werten parallelisiert -->
+<!-- results.nstart <- future_map_dfr(nstart_values, function(nstart) { -->
+<!--   model <- kmeans(tri.grams.matrix, centers = 4, nstart = nstart) -->
+<!--   tibble(nstart = nstart, tot_withinss = model$tot.withinss) -->
+<!-- }, .options = furrr_options(seed = TRUE)) -->
+
+<!-- # results <- map_dfr(nstart_values, function(nstart) { -->
+<!-- #   model <- kmeans(tri.grams.matrix, centers = 4, nstart = nstart) -->
+<!-- #   tibble(nstart = nstart, tot_withinss = model$tot.withinss) -->
+<!-- # }) -->
+
+<!-- plan(sequential) -->
+
+<!-- saveRDS(results.nstart, "results_nstart.rds") -->
+
+<!-- ``` -->
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: fig-nstart -->
+<!-- #| fig-cap: Optimierung von nstart -->
+
+<!-- results.nstart <- readRDS("results_nstart.rds") -->
+<!-- # Plot der Ergebnisse -->
+<!-- ggplot(results.nstart, aes(x = nstart, y = tot_withinss)) + -->
+<!--   geom_line() + -->
+<!--   geom_point() + -->
+<!--   labs(title = "", -->
+<!--        x = "nstart", -->
+<!--        y = "Totale Within-Cluster Sum of Squares") + -->
+<!--   theme_minimal() -->
+<!-- ``` -->
+
+
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- # K-Means Clustering -->
+<!-- set.seed(8173) -->
+<!-- kmeans_model.c3 <- kmeans(tri.grams.matrix, centers = 3, nstart = 25) -->
+<!-- kmeans_model.c4 <- kmeans(tri.grams.matrix, centers = 4, nstart = 25) -->
+<!-- kmeans_model.c5 <- kmeans(tri.grams.matrix, centers = 5, nstart = 25) -->
+<!-- #kmeans_model.c6 <- kmeans(tri.grams.matrix, centers = 6, nstart = 25) -->
+
+
+
+
+
+<!-- # Cluster zuordnen -->
+<!-- EPcsv1 <- EPcsv1 |>  -->
+<!--   mutate(cluster3 = kmeans_model.c3$cluster#, -->
+<!--          cluster4 = kmeans_model.c4$cluster, -->
+<!--          cluster5 = kmeans_model.c5$cluster -->
+<!--          ) -->
+<!-- ``` -->
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+
+
+<!-- EPcsv1 <- readRDS("dev.df1.rds") -->
+
+<!-- library(wordcloud) -->
+<!-- cluster3.ngrams <- EPcsv1 |>  -->
+<!--   select(ID, cluster3, Bef.ImFix_cleaned) |> -->
+<!--   mutate(cluster3 = as.factor(cluster3)) |> -->
+<!--   count(cluster3, Bef.ImFix_cleaned, name = "n", sort = TRUE) |> -->
+<!--   group_by(cluster3, Bef.ImFix_cleaned)  |>  -->
+<!--   summarise(frequency = sum(n), .groups = "drop")  -->
+
+
+
+
+<!-- # Wortwolke pro Cluster -->
+<!-- #par(mfrow=c(2,2)) -->
+<!-- # set.seed(5173) -->
+<!-- # cluster3.ngrams |>  -->
+<!-- #   filter(cluster3 == 1)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 20, colors = brewer.pal(8, "Dark2"))) -->
+<!-- #  -->
+<!-- # cluster3.ngrams |>  -->
+<!-- #   filter(cluster3 == 2)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2"))) -->
+<!-- #  -->
+<!-- # cluster3.ngrams |>  -->
+<!-- #   filter(cluster3 == 3)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2"))) -->
+
+
+<!-- ``` -->
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: fig-3cluster in barplot -->
+<!-- #| fig-cap: 3 Cluster - Barplot -->
+
+
+<!-- cluster3.ngrams |>  -->
+<!--   group_by(cluster3) |>  -->
+<!--   slice_max(order_by = frequency, n = 10) |>  -->
+<!--   arrange(cluster3, frequency) |> # Sortiere nach Cluster und Häufigkeit -->
+<!--   mutate(Bef.ImFix_cleaned = factor(Bef.ImFix_cleaned, levels = unique(Bef.ImFix_cleaned))) |>  -->
+<!--   ggplot(aes(x = Bef.ImFix_cleaned, y = frequency, fill = factor(cluster3))) + -->
+<!--   geom_bar(stat = "identity") + -->
+<!--   scale_y_log10() + -->
+<!--   coord_flip() + -->
+<!--   labs(title = "Häufigste Tri-Gramme pro Cluster", -->
+<!--        x = "texte", -->
+<!--        y = "Häufigkeit") + -->
+<!--   theme_minimal() -->
+
+<!-- ``` -->
+
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+
+
+<!-- library(wordcloud) -->
+<!-- cluster4.ngrams <- EPcsv1 |>  -->
+<!--   select(ID, cluster4, Bef.ImFix_cleaned) |> -->
+<!--   count(cluster4, Bef.ImFix_cleaned, name = "n", sort = TRUE) |> -->
+<!--   group_by(cluster4, Bef.ImFix_cleaned)  |>  -->
+<!--   summarise(frequency = sum(n), .groups = "drop") -->
+
+<!-- # Wortwolke pro Cluster -->
+<!-- #par(mfrow=c(2,2)) -->
+<!-- # set.seed(8173) -->
+<!-- # cluster4.ngrams |>  -->
+<!-- #   filter(cluster4 == 1)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2"))) -->
+<!-- #  -->
+<!-- # cluster4.ngrams |>  -->
+<!-- #   filter(cluster4 == 2)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2"))) -->
+<!-- #  -->
+<!-- # cluster4.ngrams |>  -->
+<!-- #   filter(cluster4 == 3)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2"))) -->
+<!-- #  -->
+<!-- # cluster4.ngrams |>  -->
+<!-- #   filter(cluster4 == 4)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2"))) -->
+<!-- ``` -->
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: fig-4cluster in barplot -->
+<!-- #| fig-cap: 4 Cluster - Barplot -->
+
+
+<!-- cluster4.ngrams |>  -->
+<!--   group_by(cluster4) |>  -->
+<!--   slice_max(order_by = frequency, n = 10) |>  -->
+<!--   arrange(cluster4, desc(frequency)) |> # Sortiere nach Cluster und Häufigkeit -->
+<!--   mutate(Bef.ImFix_cleaned = factor(Bef.ImFix_cleaned, levels = unique(Bef.ImFix_cleaned))) |>  -->
+<!--   ggplot(aes(x = Bef.ImFix_cleaned, y = frequency, fill = factor(cluster4))) + -->
+<!--   geom_bar(stat = "identity") + -->
+<!--   scale_y_log10() + -->
+<!--   coord_flip() + -->
+<!--   labs(title = "Häufigste Tri-Gramme pro Cluster", -->
+<!--        x = "texte", -->
+<!--        y = "Häufigkeit") + -->
+<!--   theme_minimal() -->
+
+<!-- ``` -->
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: fig-5cluster in wordcloud -->
+<!-- #| fig-cap: 5 Cluster - Wortwolken -->
+
+<!-- library(wordcloud) -->
+<!-- cluster5.ngrams <- EPcsv1 |>  -->
+<!--   select(ID, cluster5, Bef.ImFix_cleaned) |> -->
+<!--   count(cluster5, Bef.ImFix_cleaned, name = "n", sort = TRUE) |> -->
+<!--   group_by(cluster5, Bef.ImFix_cleaned)  |>  -->
+<!--   summarise(frequency = sum(n), .groups = "drop") -->
+
+<!-- # Wortwolke pro Cluster -->
+<!-- #par(mfrow=c(2,2)) -->
+<!-- # set.seed(173) -->
+<!-- # cluster5.ngrams |>  -->
+<!-- #   filter(cluster5 == 1)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 30, colors = brewer.pal(8, "Dark2"))) -->
+<!-- #  -->
+<!-- # cluster5.ngrams |>  -->
+<!-- #   filter(cluster5 == 2)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2"))) -->
+<!-- #  -->
+<!-- # cluster5.ngrams |>  -->
+<!-- #   filter(cluster5 == 3)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2"))) -->
+<!-- #  -->
+<!-- # cluster5.ngrams |>  -->
+<!-- #   filter(cluster5 == 4)  |>  -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 60, colors = brewer.pal(8, "Dark2"))) -->
+<!-- #  -->
+<!-- # cluster5.ngrams |>  -->
+<!-- #   filter(cluster5 == 5)  |>  -->
+<!-- #   arrange(desc(frequency)) |> -->
+<!-- #   with(wordcloud(Bef.ImFix_cleaned, frequency, max.words = 5, colors = brewer.pal(8, "Dark2"))) -->
+<!-- ``` -->
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: fig-5cluster in barplot -->
+<!-- #| fig-cap: 5 Cluster - Barplot -->
+
+
+<!-- cluster5.ngrams |>  -->
+<!--   group_by(cluster5) |>  -->
+<!--   slice_max(order_by = frequency, n = 4) |>  -->
+<!--   arrange(cluster5, frequency) |>  -->
+<!--   mutate(Bef.ImFix_cleaned = factor(Bef.ImFix_cleaned, levels = unique(Bef.ImFix_cleaned))) |>  -->
+<!--   ggplot(aes(x = Bef.ImFix_cleaned, y = frequency, fill = factor(cluster5))) + -->
+<!--   geom_bar(stat = "identity") + -->
+<!--   scale_y_log10() + -->
+<!--   coord_flip() + -->
+<!--   labs(title = "Häufigste Tri-Gramme pro Cluster", -->
+<!--        x = "texte", -->
+<!--        y = "Häufigkeit") + -->
+<!--   theme_minimal() -->
+
+
+<!-- # Funktion, um Text auf maximal 10 Wörter zu kürzen -->
+<!-- shorten.text <- function(text, max.words = 7) { -->
+<!--   words <- unlist(strsplit(text, "\\s+")) # Text in Wörter aufteilen -->
+<!--   if (length(words) > max.words) { -->
+<!--     paste0(paste(words[1:max.words], collapse = " "), "...") -->
+<!--   } else { -->
+<!--     text -->
+<!--   } -->
+<!-- } -->
+
+<!-- cluster5.ngrams |>  -->
+<!--   group_by(cluster5) |>  -->
+<!--   slice_max(order_by = frequency, n = 8) |>  -->
+<!--   mutate( -->
+<!--     Bef.ImFix_cleaned.short = sapply(Bef.ImFix_cleaned, shorten.text), # Texte kürzen -->
+<!--     Bef.ImFix_cleaned.short = factor(Bef.ImFix_cleaned.short, levels = unique(Bef.ImFix_cleaned.short)) -->
+<!--   ) |>  -->
+<!--   ggplot(aes(x = Bef.ImFix_cleaned.short, y = frequency, fill = factor(cluster5))) + -->
+<!--   geom_bar(stat = "identity") + -->
+<!--   scale_y_log10() + -->
+<!--   coord_flip() + -->
+<!--   labs(title = "Häufigste Texte pro Cluster", -->
+<!--        x = "texte", -->
+<!--        y = "Häufigkeit") + -->
+<!--   theme_minimal() -->
+
+<!-- ``` -->
+
+<!-- #### Clusterzuordnung der Befundtexte als Klassifizierung -->
+
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- # Cluster-Zuordnung -->
+<!-- EPcsv1  <-  EPcsv1 |>  -->
+<!--   mutate( -->
+<!--     Klassifizierung = case_when( -->
+<!--       cluster3 == 1 ~ "MGradient", -->
+<!--       cluster3 == 2 ~ "unauffällig", -->
+<!--       cluster3 == 3 ~ "suspicous" -->
+<!--     )|>  -->
+<!--   as.factor() -->
+<!--   )  -->
+
+<!-- # Speichern der Cluster und Klassifizierung -->
+<!-- saveRDS(EPcsv1, "EPcsv1.rds") -->
+<!-- saveRDS(EPcsv3, "EPcsv3.rds") -->
+<!-- saveRDS(EPcsv.uni, "EPcsv.uni.rds") -->
+<!-- ``` -->
+
+
+
+
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: fig-class_distribution -->
+<!-- #| fig-cap: Verteilung der Klassifizierungen -->
+
+<!-- EPcsv1 <- readRDS("~/CAS-EP&ML/dev_df1.rds") -->
+<!-- # Anzahl der 3 verschiedenen Klassifizierungen als Barplot und Tabelle -->
+<!-- EPcsv1 |>  -->
+<!--   ggplot(aes(x = Klassifizierung, fill = factor(cluster3))) + -->
+<!--   geom_bar() + -->
+<!--   labs(title = "Klassifizierung der Befundtexte", -->
+<!--        x = "Klassifizierung", -->
+<!--        y = "Anzahl") + -->
+<!--   coord_flip() + -->
+<!--   theme_minimal() -->
+<!-- ``` -->
+
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: tbl-class_distribution -->
+<!-- #| tbl-cap: Verteilung der Klassifizierungen -->
+
+
+<!-- ft <- EPcsv1 |>  -->
+<!--   count(Klassifizierung) |>  -->
+<!--   flextable() |> -->
+<!--   width(j = 1, width = 3.5) -->
+<!-- ft -->
+
+<!-- ``` -->
+
+<!-- ```{r, echo=FALSE, eval=FALSE, message=FALSE, warning=FALSE} -->
+
+
+<!-- # 24-01-10 neue cluster Zuordnung -->
+<!-- EPcsv.km.unauf  <-  EPcsv1 |>  -->
+<!--   select(ID, Bef.EP, Bef.ImFix, Bef.ImFix_cleaned, cluster3) |> -->
+<!--   mutate( -->
+<!--     Klassifizierung = case_when( -->
+<!--       grepl("unauffällig", Bef.ImFix_cleaned, ignore.case = T) ~ "unauffällig", -->
+<!--       cluster3 == 1 ~ "MGradient", -->
+<!--       #cluster3 == 2 ~ "unauffällig", -->
+<!--       cluster3 == 3 ~ "suspicous" -->
+<!--     )|>  -->
+<!--   as.factor() -->
+<!--   ) -->
+
+<!-- ft <- EPcsv.km.unauf |>  -->
+<!--   count(Klassifizierung) |>  -->
+<!--   flextable() |> -->
+<!--   width(j = 1, width = 3.5) -->
+<!-- ft -->
+
+<!-- # dieser Ansatz verbessert die Zuordnung der tatsächlich unauffälligen Befunde,  -->
+<!-- #aber es bringt die Gruppe nicht eindeutig formulierter Befunde mit "NA" hervor,  -->
+<!-- # zBsp: "keine Veränderung zum Vorbefund", "Bande in Schwere und leichte Kette" -->
+<!-- ``` -->
+<!-- <br> -->
+
+<!-- <br> -->
 
 ### Erstellen der Features aus den Chromatogrammen {.justify}
 
@@ -1152,126 +1115,6 @@ text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels 
 
 
 Im folgenden werden die Steigungen m, zweite Ableitungen fdd und die Flächen AUC bei allen Datenpunkten der Chromatogramme berechnet.
-
-<!-- # ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- # # calculate the area under the curve for all peaks -->
-<!-- #  -->
-<!-- # auc_all_peaks <- apply(peaks, 1, function(peak) { -->
-<!-- #   start_index <- peak[3]  # Start index -->
-<!-- #   end_index <- peak[4]    # End index -->
-<!-- #   peak_time <- decimal.values$ID[start_index:end_index] -->
-<!-- #   peak_signal <- decimal.values$decimal.values[start_index:end_index] -->
-<!-- #   trapz(peak_time, peak_signal)  # Trapezoidal rule for AUC -->
-<!-- # }) -->
-<!-- #  -->
-<!-- # auc_all_peaks -->
-<!-- # -->
-<!-- #``` -->
-
-<!-- ### Normales Chromatogramm -->
-<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-
-<!-- library(pracma) -->
-
-
-
-<!-- hex.string <- EPcsv1$curve[EPcsv1$ID == 2705] -->
-
-<!-- # Split the string into hexadecimal parts -->
-<!-- hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4)) -->
-
-<!-- # Convert each hex part to decimal -->
-<!-- decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x))) -->
-
-<!-- # dataframe with hexadecimal and decimal values -->
-<!-- dat <- as.data.frame(decimal.values) -->
-<!-- dat$decimal.values <- rev(dat$decimal.values) -->
-<!-- dat$hex.parts <- hex.parts -->
-<!-- dat$ID <- seq_len( nrow(dat) )  -->
-
-<!-- # delete rows with decimal values >10000 -->
-<!-- dat <- dat[dat$decimal.values < 10000,] -->
-
-<!-- peaks <- findpeaks(dat$decimal.values, npeaks = 15, nups = 2, ndowns = 0, minpeakheight = 80) -->
-
-
-<!-- plot(decimal.values ~ ID, data = dat, type = "l", col = "blue", lwd = 2, xlab = "ID", ylab = "signal", main = "EP Chromatogramm mit detektierten Peaks") -->
-<!-- points(dat$ID[peaks[,2]], peaks[,1], col = "red", pch = 20) -->
-<!-- abline(v = dat$ID[peaks[, 3]], col = "blue", lty = 2)  # Start of peaks -->
-<!-- abline(v = dat$ID[peaks[, 4]], col = "blue", lty = 2)  # End of peaks -->
-<!-- abline(v = dat$ID[160], col = "orange", lty = 2) -->
-<!-- text(x = dat$ID[peaks[, 2]], y = peaks[, 1]+c(-500, 1, 200, 200, 1, 1 ), labels = c("Albumin", "alpha 1", "alpha 2", "beta 1", "beta 2", "gamma"), -->
-<!--      pos = c(2, 3, 3, 3, 3, 3), offset = 0.5  , col = "darkgreen") -->
-
-<!-- ```  -->
-
-
-
-<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
-<!-- # kopieren der ersten 50 Zeilen von EPcsv1 in dev.df -->
-<!-- dev.df <- EPcsv1 -->
-
-<!-- # Hex-String in decimale Y-Werte umwandeln -->
-<!-- convert.curve.to.y <- function(hex.string) { -->
-<!--   hex.parts <- substring(hex.string, seq(1, nchar(hex.string), 4), seq(4, nchar(hex.string), 4)) -->
-<!--   decimal.values <- sapply(hex.parts, function(x) as.integer(paste0("0x", x))) -->
-<!--   dat <- as.data.frame(decimal.values) -->
-<!--   dat$decimal.values <- rev(dat$decimal.values) -->
-<!--   dat$ID <- seq_len( nrow(dat) )  -->
-<!--   dat <- dat[dat$decimal.values < 10000,] -->
-<!--   return(dat) -->
-<!-- } -->
-
-<!-- # Hinzufügen der 300 Y-Werte als Liste -->
-<!-- dev.df <- dev.df |> -->
-<!--   rowwise() |> -->
-<!--   mutate(y.values = list(convert.curve.to.y(curve))) -->
-
-
-<!-- # Funktion zur Peak-Erkennung und Umwandlung in ein DataFrame -->
-<!-- library(pracma) -->
-
-<!-- detect.peaks <- function(y.values) { -->
-<!--   peaks <- findpeaks(y.values, npeaks = 15, nups = 2, ndowns = 0, minpeakheight = 80)   -->
-<!--   if (is.null(peaks)) { -->
-<!--     return(data.frame( -->
-<!--       height = NA, position = NA, begin = NA, end = NA -->
-<!--     )) -->
-<!--   } -->
-<!--   return(data.frame( -->
-<!--     height = peaks[, 1], -->
-<!--     position = peaks[, 2], -->
-<!--     begin = peaks[, 3], -->
-<!--     end = peaks[, 4] -->
-<!--   )) -->
-<!-- } -->
-
-<!-- # Peaks finden und Ergebnisse als Liste hinzufügen -->
-<!-- dev.df <- dev.df |> -->
-<!--   rowwise() |> -->
-<!--   mutate(peaks = list(detect.peaks(y.values$decimal.values))) -->
-
-<!-- # Peaks in Wide-Format transformieren -->
-<!-- extract.peak.data <- function(peaks, max.peaks = 12) { -->
-<!--   peaks <- peaks[seq_len(min(nrow(peaks), max.peaks)), ] -->
-<!--   result <- as.list(rep(NA, max.peaks * 4)) -->
-<!--   names(result) <- paste0(rep(paste0("peak", seq_len(max.peaks)), each = 4), c(".height", ".position", ".begin", ".end")) -->
-<!--   for (i in seq_len(nrow(peaks))) { -->
-<!--     result[[paste0("peak", i, ".height")]] <- peaks$height[i] -->
-<!--     result[[paste0("peak", i, ".position")]] <- peaks$position[i] -->
-<!--     result[[paste0("peak", i, ".begin")]] <- peaks$begin[i] -->
-<!--     result[[paste0("peak", i, ".end")]] <- peaks$end[i] -->
-<!--   } -->
-<!--   return(result) -->
-<!-- } -->
-
-<!-- # Ergebnisse als Spalten hinzufügen -->
-<!-- dev.df <- dev.df |> -->
-<!--   rowwise() |> -->
-<!--   mutate(peak.data = list(extract.peak.data(peaks))) |> -->
-<!--   unnest_wider(peak.data) -->
-<!-- ``` -->
-
 
 
 
@@ -1452,8 +1295,8 @@ for (col_name in c("EP.y", "m", "fdd", "AUC")) {
  }
 #}  
 
-saveRDS(dev.df1, "dev_df1.rds")
-
+#saveRDS(dev.df1, "dev_df1.rds")
+saveRDS(dev.df1, "all_data.rds")
 
 
 
@@ -1484,165 +1327,165 @@ saveRDS(dev.df1, "dev_df1.rds")
 
 ```
 
-### Überblick über die Daten {.justify}
-```{r skimEPdata, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE}
-#| label: tbl-skimEPPeakData
-#| tbl-cap: EP-Daten mit Klassifikation und Features
+<!-- ### Überblick über die Daten {.justify} -->
+<!-- ```{r skimEPdata, echo=TRUE, eval=TRUE,message=FALSE, warning=FALSE} -->
+<!-- #| label: tbl-skimEPPeakData -->
+<!-- #| tbl-cap: EP-Daten mit Klassifikation und Features -->
 
-dev.df1 <- readRDS("dev_df1.rds")
+<!-- dev.df1 <- readRDS("dev_df1.rds") -->
 
-my_skim <- skim_with(base = sfl(
-  #Datentyp = skim_type,
-  #Variable = skim_variable,
-  fehlend = n_missing,
-  komplett = n_complete,
-  n = length
-))
-ft <-  flextable(my_skim(dev.df1))|> 
-  set_header_labels(skim_type = "Datentyp",
-                    skim_variable = "Variable",
-                    n_missing = "Fehlende Werte",
-                    n = "Anzahl",
-                    numeric.mean = "Mittelwert",
-                    numeric.sd = "Standardabweichung",
-                    numeric.p25 = "25%-Quantil",
-                    numeric.p50 = "50%-Quantil",
-                    numeric.p75 = "75%-Quantil",
-                    numeric.p0 = "Minimum",
-                    numeric.p100 = "Maximum",
-                    numeric.hist = "Histogramm",
-                    factor.n_unique =" Anzahl Faktoren") |>
-  autofit() |>
-  bold(part = "header") |>
-  align(align = "center", part = "all")
-ft
-```
+<!-- my_skim <- skim_with(base = sfl( -->
+<!--   #Datentyp = skim_type, -->
+<!--   #Variable = skim_variable, -->
+<!--   fehlend = n_missing, -->
+<!--   komplett = n_complete, -->
+<!--   n = length -->
+<!-- )) -->
+<!-- ft <-  flextable(my_skim(dev.df1))|>  -->
+<!--   set_header_labels(skim_type = "Datentyp", -->
+<!--                     skim_variable = "Variable", -->
+<!--                     n_missing = "Fehlende Werte", -->
+<!--                     n = "Anzahl", -->
+<!--                     numeric.mean = "Mittelwert", -->
+<!--                     numeric.sd = "Standardabweichung", -->
+<!--                     numeric.p25 = "25%-Quantil", -->
+<!--                     numeric.p50 = "50%-Quantil", -->
+<!--                     numeric.p75 = "75%-Quantil", -->
+<!--                     numeric.p0 = "Minimum", -->
+<!--                     numeric.p100 = "Maximum", -->
+<!--                     numeric.hist = "Histogramm", -->
+<!--                     factor.n_unique =" Anzahl Faktoren") |> -->
+<!--   autofit() |> -->
+<!--   bold(part = "header") |> -->
+<!--   align(align = "center", part = "all") -->
+<!-- ft -->
+<!-- ``` -->
 
-:::
+<!-- ::: -->
 
-## Datenvorbereitung für die Modellierung {.justify}
+<!-- ## Datenvorbereitung für die Modellierung {.justify} -->
 
-::: {.panel-tabset}
+<!-- ::: {.panel-tabset} -->
 
-### Auswahl der relevanten Features {.justify}
-In der vorliegenden Arbeit möchte ich, wenigstens in einem ersten Schritt auf ein Model zur Unterstützung der Gammopathie-Erkennung fokusieren. Diese werden vorallem durch aberante Peaks in den beta1-, beta2- und gamma-Fraktionen erkannt. 
-Daher wähle ich zunächste die Signalhöhen (EP.y), die zugehörigen Steigungen (m), die zweite Ableitung (fdd) und die Flächen unter den Peaks (AUC) in den zweiten Hälften der Chromatogramme - also Messpunkte 150 bis 300, als Features für die Modellierung aus.
+<!-- ### Auswahl der relevanten Features {.justify} -->
+<!-- In der vorliegenden Arbeit möchte ich, wenigstens in einem ersten Schritt auf ein Model zur Unterstützung der Gammopathie-Erkennung fokusieren. Diese werden vorallem durch aberante Peaks in den beta1-, beta2- und gamma-Fraktionen erkannt.  -->
+<!-- Daher wähle ich zunächste die Signalhöhen (EP.y), die zugehörigen Steigungen (m), die zweite Ableitung (fdd) und die Flächen unter den Peaks (AUC) in den zweiten Hälften der Chromatogramme - also Messpunkte 150 bis 300, als Features für die Modellierung aus. -->
 
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- # Auswahl der relevanten Features -->
+<!-- # Subset des DataFrames für die Modellierung -->
+<!-- dev.df1 <- readRDS("dev_df1.rds") -->
+<!-- dev.sub <- dev.df1 |>  -->
+<!--   select( ID,  -->
+<!--           Klassifizierung,  -->
+<!--           EP.y150:EP.y300,  -->
+<!--           m150:m300,  -->
+<!--           fdd150:fdd300,  -->
+<!--           AUC150:AUC300) -->
+
+<!-- saveRDS(dev.sub, "dev_sub.rds") -->
+
+
+<!-- ``` -->
+
+<!-- ### Überblick über die Daten {.justify} -->
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: tbl-skimEPdata -->
+<!-- #| tbl-cap: EP-Daten mit Klassifikation und Features -->
+
+<!-- EPdata <- readRDS("dev_sub.rds") -->
+
+<!-- ft <-  flextable(my_skim(EPdata))|>  -->
+<!--   set_header_labels(skim_type = "Datentyp", -->
+<!--                     skim_variable = "Variable", -->
+<!--                     n_missing = "Fehlende Werte", -->
+<!--                     n = "Anzahl", -->
+<!--                     numeric.mean = "Mittelwert", -->
+<!--                     numeric.sd = "Standardabweichung", -->
+<!--                     numeric.p25 = "25%-Quantil", -->
+<!--                     numeric.p50 = "50%-Quantil", -->
+<!--                     numeric.p75 = "75%-Quantil", -->
+<!--                     numeric.p0 = "Minimum", -->
+<!--                     numeric.p100 = "Maximum", -->
+<!--                     numeric.hist = "Histogramm", -->
+<!--                     factor.n_unique =" Anzahl Faktoren") |> -->
+<!--   autofit() |> -->
+<!--   bold(part = "header") |> -->
+<!--   align(align = "center", part = "all") -->
+<!-- ft -->
+
+
+<!-- ``` -->
+
+<!-- ::: -->
+
+<!-- ### Aufteilen der Daten in Trainings-, Validierungs- und Testdaten {.justify} -->
+<!-- Ich versuche schon an diesem Punkt mit den Schritten des "Tidymodeling" zu arbeiten . -->
+
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- library(tidymodels) -->
+
+
+<!-- # Aufteilen der Daten in 60% Trainings-, 20% Validierungs- und  20% Testdaten -->
+<!-- set.seed(8173) -->
+<!-- EP.split <- EPdata |>  -->
+<!--   initial_validation_split(prop = c(0.6, 0.2), strata = Klassifizierung) -->
+
+
+<!-- saveRDS(EP.split, "EP_split.rds") -->
+
+
+<!-- ``` -->
+
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- EPtraining <- training(EP.split) -->
+<!-- saveRDS(EPtraining, "EPtraining.rds") -->
+
+<!-- EPvalidation <- validation(EP.split) -->
+<!-- saveRDS(EPvalidation, "EPvalidation.rds") -->
+
+<!-- #EPtesting <- testing(EP.split) -->
+<!-- ``` -->
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: tbl-EPsplit -->
+<!-- #| tbl-cap: Aufteilung der Daten in Trainings-, Validierungs- und Testdaten -->
+
+<!-- EP.split <- readRDS("EP_split.rds") -->
+<!-- EP.split -->
+
+
+<!-- ``` -->
+
+## Selektieren der unaufälligen Chromatogramme {.justify}
+
+#### Entfernen von Klammern, Kürzel, Satzzeichen, und Filtern ähnlicher Wörter via Distanz-Messung von *"unauffällig"*
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-# Auswahl der relevanten Features
-# Subset des DataFrames für die Modellierung
-dev.df1 <- readRDS("dev_df1.rds")
-dev.sub <- dev.df1 |> 
-  select( ID, 
-          Klassifizierung, 
-          EP.y150:EP.y300, 
-          m150:m300, 
-          fdd150:fdd300, 
-          AUC150:AUC300)
 
-saveRDS(dev.sub, "dev_sub.rds")
-
-
-```
-
-### Überblick über die Daten {.justify}
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: tbl-skimEPdata
-#| tbl-cap: EP-Daten mit Klassifikation und Features
-
-EPdata <- readRDS("dev_sub.rds")
-
-ft <-  flextable(my_skim(EPdata))|> 
-  set_header_labels(skim_type = "Datentyp",
-                    skim_variable = "Variable",
-                    n_missing = "Fehlende Werte",
-                    n = "Anzahl",
-                    numeric.mean = "Mittelwert",
-                    numeric.sd = "Standardabweichung",
-                    numeric.p25 = "25%-Quantil",
-                    numeric.p50 = "50%-Quantil",
-                    numeric.p75 = "75%-Quantil",
-                    numeric.p0 = "Minimum",
-                    numeric.p100 = "Maximum",
-                    numeric.hist = "Histogramm",
-                    factor.n_unique =" Anzahl Faktoren") |>
-  autofit() |>
-  bold(part = "header") |>
-  align(align = "center", part = "all")
-ft
-
-
-```
-
-:::
-
-### Aufteilen der Daten in Trainings-, Validierungs- und Testdaten {.justify}
-Ich versuche schon an diesem Punkt mit den Schritten des "Tidymodeling" zu arbeiten .
-
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-library(tidymodels)
-
-
-# Aufteilen der Daten in 60% Trainings-, 20% Validierungs- und  20% Testdaten
-set.seed(8173)
-EP.split <- EPdata |> 
-  initial_validation_split(prop = c(0.6, 0.2), strata = Klassifizierung)
-
-
-saveRDS(EP.split, "EP_split.rds")
-
-
-```
-
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-EPtraining <- training(EP.split)
-saveRDS(EPtraining, "EPtraining.rds")
-
-EPvalidation <- validation(EP.split)
-saveRDS(EPvalidation, "EPvalidation.rds")
-
-#EPtesting <- testing(EP.split)
-```
-
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: tbl-EPsplit
-#| tbl-cap: Aufteilung der Daten in Trainings-, Validierungs- und Testdaten
-
-EP.split <- readRDS("EP_split.rds")
-EP.split
-
-
-```
-
-## 06.01.2025 Bereinigung der EP-Befunde und Klassifizierung {.justify}
-
-#### Korrektur von *"unauffällig"*
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-# Tokenisierung der EP-Befundtexte
 library(tidytext)
 library(stringr)
 
-Bef.EP.freq <- EPcsv |>
+sub.norm <- EPcsv1 |> # aendern in "all.data
   mutate(
     Bef.EP_cleaned = gsub("\\([A-Za-zäöüÄÖÜ]+(/[A-Za-zäöüÄÖÜ]+)?\\)", "", Bef.EP),
     Bef.EP_cleaned = gsub("[0-9]+", "", Bef.EP_cleaned),
-    #Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, monate, ""),
     Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "[[:punct:]]", ""),
     Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, " +", " "),
     Bef.EP_cleaned = str_replace_all(Bef.EP_cleaned, "-", ""),
-    Bef.EP_cleaned = str_squish(Bef.EP_cleaned)
+    Bef.EP_cleaned = str_squish(Bef.EP_cleaned),
+    Bef.ImFix_cleaned = gsub("\\([A-Za-zäöüÄÖÜ]+(/[A-Za-zäöüÄÖÜ]+)?\\)", "", Bef.ImFix),
+    Bef.ImFix_cleaned = gsub("[0-9]+", "", Bef.ImFix_cleaned),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "[[:punct:]]", ""),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, " +", " "),
+    Bef.ImFix_cleaned = str_replace_all(Bef.ImFix_cleaned, "-", ""),
+    Bef.ImFix_cleaned = str_squish(Bef.ImFix_cleaned)
   ) |> 
-  unnest_tokens(Bef.EP_cleaned, Bef.EP_cleaned, token = "words", to_lower =TRUE, drop = FALSE) |> 
-  count(Bef.EP_cleaned, sort = TRUE) |> 
-  arrange(Bef.EP_cleaned)|> 
-  mutate(Distanz = stringdist("unauffällig", Bef.EP_cleaned, method = "lv")) |> 
-  filter(Distanz < 4) |> 
-  pull(Bef.EP_cleaned)
+  filter(stringdist("unauffällig", Bef.EP_cleaned, method = "lv") < 4 &
+         stringdist("unauffällig", Bef.ImFix_cleaned, method = "lv") < 4) |> 
+  select(-Bef.EP_cleaned, -Bef.ImFix_cleaned)
 
-EP.unauf <- paste0("\\b(", paste(Bef.EP.freq, collapse = "|"), ")\\b")
-
-
+saveRDS(sub.norm, "sub_norm.rds")
 
 ```
 
@@ -1961,99 +1804,99 @@ saveRDS(dev.man.EP.all, "dev_man_EP_all.rds")
 ```
 
 
-#### keras und tensorflow: Datenvorbereitung für Autoencoder: Normalisierung der Daten in einer Matrix
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-# matrix from dev.man.EP.all without ID
-dev.man.EP.all <- readRDS("dev_man_EP_all.rds")
-man.EP.mtrx <- dev.man.EP.all |> 
-  select(-c(ID, AUC300)) |> 
-  mutate(across(everything(), as.numeric)) |> 
-  as.matrix()
+<!-- #### keras und tensorflow: Datenvorbereitung für Autoencoder: Normalisierung der Daten in einer Matrix -->
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- # matrix from dev.man.EP.all without ID -->
+<!-- dev.man.EP.all <- readRDS("dev_man_EP_all.rds") -->
+<!-- man.EP.mtrx <- dev.man.EP.all |>  -->
+<!--   select(-c(ID, AUC300)) |>  -->
+<!--   mutate(across(everything(), as.numeric)) |>  -->
+<!--   as.matrix() -->
 
-# Normalisierung
-normalize <- function(x) (x - min(x)) / (max(x) - min(x))
-# Normalisierung nur auf die Spalten 2 bis n
-man.EP.mtrx[, 2:ncol(man.EP.mtrx)] <- apply(man.EP.mtrx[, 2:ncol(man.EP.mtrx)], 2, normalize)
+<!-- # Normalisierung -->
+<!-- normalize <- function(x) (x - min(x)) / (max(x) - min(x)) -->
+<!-- # Normalisierung nur auf die Spalten 2 bis n -->
+<!-- man.EP.mtrx[, 2:ncol(man.EP.mtrx)] <- apply(man.EP.mtrx[, 2:ncol(man.EP.mtrx)], 2, normalize) -->
 
-# Trenne unauffällige und suspicous Daten
-dat.unauf <- man.EP.mtrx[man.EP.mtrx[,1] ==2,]
-dat.susp <- man.EP.mtrx[man.EP.mtrx[,1] == 1, ]
-     
-# Anzahl features
-n_features <- ncol(dat.unauf)-1
-```
+<!-- # Trenne unauffällige und suspicous Daten -->
+<!-- dat.unauf <- man.EP.mtrx[man.EP.mtrx[,1] ==2,] -->
+<!-- dat.susp <- man.EP.mtrx[man.EP.mtrx[,1] == 1, ] -->
 
-#### keras und tensorflow: Autoencoder-Modell  definieren
-Mit den unauffälligen Proben wird ein Autoencoder-Modell trainiert, um die normalen Daten zu lernen.
+<!-- # Anzahl features -->
+<!-- n_features <- ncol(dat.unauf)-1 -->
+<!-- ``` -->
 
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} 
-# start tensorflow session
- library(reticulate)
- use_virtualenv("r-tensorflow", required = TRUE)
- py_config()
+<!-- #### keras und tensorflow: Autoencoder-Modell  definieren -->
+<!-- Mit den unauffälligen Proben wird ein Autoencoder-Modell trainiert, um die normalen Daten zu lernen. -->
 
-
-library(keras)
-library(tensorflow)
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}  -->
+<!-- # start tensorflow session -->
+<!--  library(reticulate) -->
+<!--  use_virtualenv("r-tensorflow", required = TRUE) -->
+<!--  py_config() -->
 
 
-
-# Parameter
-input_dim <- n_features
-encoding_dim <- 64
-
-
-# 
-# # Erwarteter Output:
-# # python:         /home/olli/.virtualenvs/r-tensorflow/bin/python
-# # libpython:      /usr/lib/python3.10/config-3.10-x86_64-linux-gnu/libpython3.10.so
-# # pythonhome:     /home/olli/.virtualenvs/r-tensorflow:/home/olli/.virtualenvs/r-tensorflow
-# # virtualenv:     /home/olli/.virtualenvs/r-tensorflow/bin/activate_this.py
-# # version:        3.10.16 (main, Dec  4 2024, 08:53:38) [GCC 13.2.0]
-# # numpy:          /home/olli/.virtualenvs/r-tensorflow/lib/python3.10/site-packages/numpy
-# # numpy_version:  2.0.2
-
-
-# Encoder
-input_layer <- layer_input(shape = c(input_dim))
-encoded <- input_layer %>%
-  layer_dense(units = 128, activation = "relu") %>%
-  layer_dense(units = encoding_dim, activation = "relu")
-
-# Decoder
-decoded <- encoded %>%
-  layer_dense(units = 128, activation = "relu") %>%
-  layer_dense(units = input_dim, activation = "sigmoid")
-
-# Autoencoder-Modell
-autoencoder <- keras_model(inputs = input_layer, outputs = decoded)
-
-# Kompilierung
-autoencoder$compile(
-  optimizer = tf$keras$optimizers$Adam(),
-  loss = "mse"
-)
-
-
-```
-
-#### keras und tensorflow: Autoencoder-Modell trainieren
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-# trainings Daten
-train_data <- dat.unauf[, -1]
-
-
-history <- autoencoder %>% fit(
-  x = train_data,
-  y = train_data,  # Ziel ist die Rekonstruktion der Eingabedaten
-  epochs = 50,     # Anzahl der Epochen
-  batch_size = 32, # Batch-Größe
-  validation_split = 0.2  # Anteil der Validierungsdaten
-)
+<!-- library(keras) -->
+<!-- library(tensorflow) -->
 
 
 
-```
+<!-- # Parameter -->
+<!-- input_dim <- n_features -->
+<!-- encoding_dim <- 64 -->
+
+
+<!-- #  -->
+<!-- # # Erwarteter Output: -->
+<!-- # # python:         /home/olli/.virtualenvs/r-tensorflow/bin/python -->
+<!-- # # libpython:      /usr/lib/python3.10/config-3.10-x86_64-linux-gnu/libpython3.10.so -->
+<!-- # # pythonhome:     /home/olli/.virtualenvs/r-tensorflow:/home/olli/.virtualenvs/r-tensorflow -->
+<!-- # # virtualenv:     /home/olli/.virtualenvs/r-tensorflow/bin/activate_this.py -->
+<!-- # # version:        3.10.16 (main, Dec  4 2024, 08:53:38) [GCC 13.2.0] -->
+<!-- # # numpy:          /home/olli/.virtualenvs/r-tensorflow/lib/python3.10/site-packages/numpy -->
+<!-- # # numpy_version:  2.0.2 -->
+
+
+<!-- # Encoder -->
+<!-- input_layer <- layer_input(shape = c(input_dim)) -->
+<!-- encoded <- input_layer %>% -->
+<!--   layer_dense(units = 128, activation = "relu") %>% -->
+<!--   layer_dense(units = encoding_dim, activation = "relu") -->
+
+<!-- # Decoder -->
+<!-- decoded <- encoded %>% -->
+<!--   layer_dense(units = 128, activation = "relu") %>% -->
+<!--   layer_dense(units = input_dim, activation = "sigmoid") -->
+
+<!-- # Autoencoder-Modell -->
+<!-- autoencoder <- keras_model(inputs = input_layer, outputs = decoded) -->
+
+<!-- # Kompilierung -->
+<!-- autoencoder$compile( -->
+<!--   optimizer = tf$keras$optimizers$Adam(), -->
+<!--   loss = "mse" -->
+<!-- ) -->
+
+
+<!-- ``` -->
+
+<!-- #### keras und tensorflow: Autoencoder-Modell trainieren -->
+<!-- ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE} -->
+<!-- # trainings Daten -->
+<!-- train_data <- dat.unauf[, -1] -->
+
+
+<!-- history <- autoencoder %>% fit( -->
+<!--   x = train_data, -->
+<!--   y = train_data,  # Ziel ist die Rekonstruktion der Eingabedaten -->
+<!--   epochs = 50,     # Anzahl der Epochen -->
+<!--   batch_size = 32, # Batch-Größe -->
+<!--   validation_split = 0.2  # Anteil der Validierungsdaten -->
+<!-- ) -->
+
+
+
+<!-- ``` -->
 
 
 ### h2o-Workflow {.justify}
@@ -2062,9 +1905,9 @@ library(h2o)
 h2o.init(nthreads = 10, max_mem_size = "56G")
 
 # Import und Vorbereiten der Daten
-dat_h2o <- readRDS("dev_man_EP_all.rds") |> 
-  filter(EPKlasse == "unauffällig") |>
-  select(-ID, -EPKlasse, -AUC300) |> 
+dat_h2o <- readRDS("sub_norm.rds") |> 
+  #filter(EPKlasse == "unauffällig") |>
+  select(EP.y1:EP.y300) |> 
   as.h2o()
 
 
@@ -2076,9 +1919,13 @@ dat_susp_h2o <- readRDS("dev_man_EP_all.rds") |>
 
 # Hyperparameter für die Grid Search
 hyper_params <- list(
-  hidden = list(c(128, 64, 128), c(64, 32, 64), c(256, 128, 256)),  # Verschiedene Layer-Architekturen
-  activation = c("Tanh", "Rectifier"),            # Verschiedene Aktivierungsfunktionen
-  l1 = c(1e-5, 1e-4),                                         # L1-Regularisierung
+  hidden = list(c(128, 64, 128), 
+                #c(64, 32, 64), 
+                #c(256, 128, 256),
+                c(512, 256, 512)
+                ),  # Verschiedene Layer-Architekturen
+  activation = c("Tanh"),            # Verschiedene Aktivierungsfunktionen
+  l1 = c(1e-6, 1e-5, 1e-4),                                         # L1-Regularisierung
   epochs = c(50)                                               # Unterschiedliche Epochen
 )
 
@@ -2093,18 +1940,20 @@ grid <- h2o.grid(
   seed = 8173                      # Reproduzierbarkeit
 )
 
-grid_performance <- h2o.getGrid(
-  grid_id = "autoencoder_grid",
-  sort_by = "mse",
-  decreasing = FALSE
-)
-print(grid_performance)
-
-failed_models <- grid_performance@failed_params
-print(failed_models)
+# grid_performance <- h2o.getGrid(
+#   grid_id = "autoencoder_grid",
+#   sort_by = "mse",
+#   decreasing = FALSE
+# )
+# print(grid_performance)
+# 
+# failed_models <- grid_performance@failed_params
+# print(failed_models)
 
 best_model <- h2o.getModel(grid_performance@model_ids[[1]])
-summary(best_model)
+
+
+saveRDS(best_model, "best_h2o_model.rds")
 
 
 # Autoencoder-Modell
@@ -2118,64 +1967,192 @@ summary(best_model)
 #   l1 = 1e-5,            # Regularisierung (optional)
 #   seed = 8173            # Reproduzierbarkeit
 # )
+```
 
+
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-h2o-model_summary
+#| fig-cap: Zusammenfassung des besten h2o-Modells
+library(h2o)
+readRDS("best_h2o_model.rds")
+
+summary(best_model)
 
 ```
-#### Rekonstruktionsfehler berechnen
+#### Rekonstruktionsfehler berechnen 
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Rekonstruktionsfehler pro feature berechnen
-reconstruction_error_unauf <- as.data.frame(h2o.anomaly(best_model, dat_h2o, per_feature = TRUE))
-reconstruction_error_susp <- as.data.frame(h2o.anomaly(best_model, dat_susp_h2o, per_feature = TRUE))
+reconstruction_error_unauf <- as.data.frame(h2o.anomaly(best_model, dat_h2o, per_feature = FALSE))
+# reconstruction_error_susp <- as.data.frame(h2o.anomaly(best_model, dat_susp_h2o, per_feature = TRUE))
 
 ```
 
-#### Vergleiche der Fehler pro feature
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-mean_error_unauf <- colMeans(reconstruction_error_unauf)
-mean_error_susp <- colMeans(reconstruction_error_susp)
+#### Schwellenwert für die Anomalieerkennung festlegen
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-reconstruction_error
+#| fig-cap: unauffällige ChromatogrammeRekonstruktionsfehler und 97.5%-Quantil
 
-# Zusammenfassen in einem DataFrame
-feature_comparison <- data.frame(
-  Feature = names(mean_error_unauf),
-  Mean_Error_Unauf = mean_error_unauf,
-  Mean_Error_Susp = mean_error_susp,
-  Difference = mean_error_susp - mean_error_unauf
-) |> 
-  mutate(Feature = gsub("^reconstr_|\\.SE$", "", Feature)) |> 
-  arrange(desc(Difference))
 
-# Sortieren nach Differenz
-feature_comparison <- feature_comparison[order(-feature_comparison$Difference), ]
+hist(reconstruction_error_unauf$Reconstruction.MSE, breaks = 50, main = "Rekonstruktionsfehler (unauffällig)")
+abline(v = quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.975), col = "red")
 ```
 
+#### Klassifizierung aller Chromatogramme mittels Schwellenwert für die Anomalieerkennung in "unauffällig" und "suspicious"
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Rekonstruktionsfehler für alle Chromatogramme berechnen
+all.data.h2o <- readRDS("all_data.rds") |> 
+  select(EP.y1:EP.y300) |> 
+  as.h2o()
 
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: tbl-feature_comparison
-#| tbl-cap: Vergleich der Rekonstruktionsfehler pro Feature
+reconstruction_error <- as.data.frame(h2o.anomaly(best_model, all.data.h2o, per_feature = FALSE))
 
-ft <- flextable(feature_comparison) |>
-  set_header_labels(Feature = "Feature",
-                    Mean_Error_Unauf = "Mittlerer Fehler (unauffällig)",
-                    Mean_Error_Susp = "Mittlerer Fehler (suspicous)",
-                    Difference = "Differenz") |>
-  autofit() |>
-  bold(part = "header") |>
-  align(align = "center", part = "all")
-ft
+
+# Schwellenwert für die Anomalieerkennung
+threshold <- quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.975)
+
+# Einbinden der Rekonstruktionsfehler in das DataFrame all.data und Klassifizierung
+all.data <- all.data |> 
+  mutate(reconstruction.MSE = reconstruction_error$Reconstruction.MSE) |> 
+  mutate(
+    Classification = case_when(
+      reconstruction_error > threshold ~ "suspicous",
+      TRUE ~ "unauffällig"
+    ) |> 
+    as.factor()
+  )
+
+
 ```
-```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+
+#### Klassifizierung in "unuaffällig", "M-Gradient" und "suspicious"
+##### Rekonstruktionsfehler für M-Gradienten berechnen
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+sub.mgrad <- read_csv("sub_mgrad.csv")
+
+mgrad.h2o <- all_data |> 
+  filter(ID %in% sub.mgrad$ID) |> 
+  select(EP.y1:EP.y300) |>
+  as.h2o()
+
+reconstruction_error_mgrad <- as.data.frame(h2o.anomaly(best_model, mgrad.h2o, per_feature = FALSE))
+
+```
+
+##### Schwellenwert für die Anomalieerkennung festlegen
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-reconstruction_error_mgrad
+#| fig-cap: Rekonstruktionsfehler für M-Gradienten und 97.5%-Quantil
+
+# hist(reconstruction_error_mgrad$Reconstruction.MSE, breaks = 50, main = "Rekonstruktionsfehler (M-Gradient)")
+# abline(v = quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.975), col = "red")
+# abline(v = quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.025), col = "red")
+
+
 library(ggplot2)
 
-top_features <- feature_comparison[1:30, ]  # Top 30 Features
-ggplot(top_features, aes(x = reorder(Feature, -Difference), y = Difference)) +
-  geom_bar(stat = "identity") +
-  coord_flip() +
-  labs(title = "Top 30 Features mit höchster Fehlerdifferenz",
-       x = "Feature",
-       y = "Fehlerdifferenz (Suspicious - Unauffällig)")
+# Daten vorbereiten
+reconstruction_error_unauf$Group <- "Unauffällig"
+reconstruction_error_mgrad$Group <- "M-Gradient"
+
+# Beide Datensätze kombinieren
+data_combined <- rbind(reconstruction_error_unauf, reconstruction_error_mgrad)
+
+# Dichtekurven plotten
+ggplot(data_combined, aes(x = Reconstruction.MSE, color = Group, fill = Group)) +
+  geom_density(alpha = 0.3) +  # Dichtekurven zeichnen, mit Transparenz
+  scale_x_log10() +           # Logarithmische x-Achse
+  geom_vline(data = data.frame(
+    Group = c("Unauffällig", "Unauffällig", "M-Gradient", "M-Gradient"),
+    Quantile = c(
+      quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.99),
+      quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.01),
+      quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.99),
+      quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.01)
+    )
+  ), 
+  aes(xintercept = Quantile, color = Group), linetype = "dashed") +  # Quantile als gestrichelte Linien
+  labs(
+    title = "Dichtekurven der Rekonstruktionsfehler",
+    x = "Reconstruction MSE (log-Skala)",
+    y = "Dichte"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top")
+
 
 
 ```
+
+
+
+<!-- #### Vergleiche der Fehler pro feature -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- mean_error_unauf <- colMeans(reconstruction_error_unauf) -->
+<!-- mean_error_susp <- colMeans(reconstruction_error_susp) -->
+
+<!-- # Zusammenfassen in einem DataFrame -->
+<!-- feature_comparison <- data.frame( -->
+<!--   Feature = names(mean_error_unauf), -->
+<!--   Mean_Error_Unauf = mean_error_unauf, -->
+<!--   Mean_Error_Susp = mean_error_susp, -->
+<!--   Difference = mean_error_susp - mean_error_unauf -->
+<!-- ) |>  -->
+<!--   mutate(Feature = gsub("^reconstr_|\\.SE$", "", Feature)) |>  -->
+<!--   arrange(desc(Difference)) -->
+
+<!-- # Sortieren nach Differenz -->
+<!-- feature_comparison <- feature_comparison[order(-feature_comparison$Difference), ] -->
+<!-- ``` -->
+
+
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- #| label: tbl-feature_comparison -->
+<!-- #| tbl-cap: Vergleich der Rekonstruktionsfehler pro Feature -->
+
+<!-- ft <- flextable(feature_comparison) |> -->
+<!--   set_header_labels(Feature = "Feature", -->
+<!--                     Mean_Error_Unauf = "Mittlerer Fehler (unauffällig)", -->
+<!--                     Mean_Error_Susp = "Mittlerer Fehler (suspicous)", -->
+<!--                     Difference = "Differenz") |> -->
+<!--   autofit() |> -->
+<!--   bold(part = "header") |> -->
+<!--   align(align = "center", part = "all") -->
+<!-- ft -->
+<!-- ``` -->
+<!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
+<!-- library(ggplot2) -->
+
+<!-- top_features <- feature_comparison[1:30, ]  # Top 30 Features -->
+<!-- ggplot(top_features, aes(x = reorder(Feature, -Difference), y = Difference)) + -->
+<!--   geom_bar(stat = "identity") + -->
+<!--   coord_flip() + -->
+<!--   labs(title = "Top 30 Features mit höchster Fehlerdifferenz", -->
+<!--        x = "Feature", -->
+<!--        y = "Fehlerdifferenz (Suspicious - Unauffällig)") -->
+
+
+<!-- ``` -->
+
+#### Trainingsdaten speichern
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Trainingsdaten speichern
+all.data.split <- all.data |> 
+  select(ID, Classification, EP.y1:fdd300) |>
+  initial_validation_split(prop = c(0.6, 0.2), strata = Classification)
+
+saveRDS(all.data.split, "all_data_split.rds")
+
+all.data.training <- training(all.data.split)
+saveRDS(all.data.training, "all_data_training.rds")
+
+all.data.validation <- validation(all.data.split)
+saveRDS(all.data.validation, "all_data_validation.rds")
+
+```
+
+
+
 
 #### top 50 features mit größter Differenz extrahieren und Trainingsdaten speichern
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
