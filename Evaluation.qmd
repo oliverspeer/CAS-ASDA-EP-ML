@@ -1064,6 +1064,194 @@ rf.res |>
 
 
 
+## Random Forrest VII  {.justify}
+alle y, m & fdd, autoencoder Klassifizierung mittels Rekonstruktionsfehler nach Training mit unauffälligen Chromatogrammen und M-Gradienten
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+#EPtraining <- readRDS("EPBtraining.rds")
+EPvalidation <- readRDS("all_data_mgrad_validation.rds")
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+# recipe building
+rf.rec <- 
+  recipe(Class ~ ., data = EPvalidation) |>
+  update_role(ID, new_role = "ID") 
+
+
+# cross validation data setting
+# set.seed(8173)
+# EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+
+
+
+# # read model
+# final.rf.npv <- finalize_model(tune.spec, best.npv) |> 
+#   set_engine("ranger", num.threads = 1)
+
+# read model
+final.rf.auc <- readRDS("final_all_data_mgrad_rf_auc.rds") |> 
+  set_engine("ranger", num.threads = 1)
+
+# workflow
+rf.wf <- workflow() |>
+  add_recipe(rf.rec) |>
+  add_model(final.rf.auc)
+
+
+# start parallel processing
+library(future)
+plan(multisession, workers = 10)
+
+# fit model
+rf.auc.res <- 
+  rf.wf |> 
+  fit_resamples(
+    resamples = EPfolds,
+    metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+    control = control_resamples(save_pred = TRUE, 
+                                allow_par = TRUE, 
+                                save_workflow = TRUE,
+                                parallel_over = "resamples"
+                                )
+  )
+
+
+
+plan(sequential)
+
+saveRDS(rf.auc.res, "rf_all_data_mgrad_auc_res.rds")
+```
+
+### Metriken {.justify}
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-rfVII-auc
+#| tbl-cap: Metriken des Random Forrest VII für AUC
+rf.res <- readRDS("rf_all_data_mgrad_auc_res.rds")
+rf.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.justify}
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-rfVI-auc-conf-mat-plot
+#| fig-cap: Confusion Matrix des Random Forrest VI für AUC
+rf.res |> 
+  collect_predictions() |>  
+  conf_mat(truth = Class, estimate = .pred_class) |> 
+  autoplot(type = "heatmap")
+```
+
+
+## Random Forrest VII mit EP Befund-Text-Klassifikation nach NPV getuned {.justify}
+50 autoencoder selektierte Features  und Klassifikation nach manuel bereinigten EP-Befunden
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Daten einlesen
+#EPtraining <- readRDS("EPBtraining.rds")
+EPvalidation <- readRDS("all_data_mgrad_validation.rds")
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+# recipe building
+rf.rec <- 
+  recipe(Class ~ ., data = EPvalidation) |>
+  update_role(ID, new_role = "ID") 
+
+
+# cross validation data setting
+# set.seed(8173)
+# EPfolds <- vfold_cv(EPvalidation, v = 5, repeats = 5)
+
+
+
+
+# # read model
+# final.rf.npv <- finalize_model(tune.spec, best.npv) |> 
+#   set_engine("ranger", num.threads = 1)
+
+# read model
+final.rf <- readRDS("final_all_data_mgrad_rf_npv.rds") |> 
+  set_engine("ranger", num.threads = 1)
+
+# workflow
+rf.wf <- workflow() |>
+  add_recipe(rf.rec) |>
+  add_model(final.rf)
+
+
+# start parallel processing
+library(future)
+plan(multisession, workers = 10)
+
+# fit model
+rf.res <- 
+  rf.wf |> 
+  fit_resamples(
+    resamples = EPfolds,
+    metrics = metric_set(roc_auc, accuracy, kap, sens, spec, ppv, npv, f_meas),
+    control = control_resamples(save_pred = TRUE, 
+                                allow_par = TRUE, 
+                                save_workflow = TRUE,
+                                parallel_over = "resamples"
+                                )
+  )
+
+
+
+plan(sequential)
+
+saveRDS(rf.res, "rf_all_data_mgrad_npv_res.rds")
+```
+
+### Metriken {.justify}
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tab-metrics-rfVI-npv
+#| tbl-cap: Metriken des Random Forrest VI für NPV
+rf.res <- readRDS("rf_all_data_mgrad_npv_res.rds")
+rf.res |> 
+  collect_metrics()|> 
+  mutate(
+    metric = .metric,
+    mean = round(mean, 2),
+    sd = round(std_err, 3)
+  ) |> 
+  select(metric, mean, n, sd) |>
+  flextable()
+```
+
+
+### Confusion Matrix {.justify}
+
+
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-rfV-npv-conf-mat-plot
+#| fig-cap: Confusion Matrix des Random Forrest V für NPV
+rf.res |> 
+  collect_predictions() |>  
+  conf_mat(truth = Class, estimate = .pred_class) |> 
+  autoplot(type = "heatmap")
+```
+
 
 
 
