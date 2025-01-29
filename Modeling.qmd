@@ -831,7 +831,7 @@ rf.grid
 ```
 #### Tune Spezifikationen und Workflow 
 
-```{r specs finetuning IV, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r specs finetuning V, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # tune setting
 tune.spec <- rand_forest(
   mtry = tune(),
@@ -855,7 +855,7 @@ tune.wf
 
 ``` 
 
-```{r finetuningIV, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r finetuningV, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 library(future)
 
 plan(multisession, workers = 5)
@@ -876,7 +876,7 @@ saveRDS(res.RF, "EP50_resRF.rds")
 
 ```
 
-```{r figfinetuning IV, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r figfinetuning V, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: figfinetuningIV
 #| fig-cap: Feintuning des Random Forest Modells für die EP Befunde mit m, fdd & AUC
 #| 
@@ -891,8 +891,8 @@ res.RF |>
   labs(y = "AUC")
 ```
 
-```{r figfinetuning IVnpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: figfinetuningIV-npv
+```{r figfinetuning Vnpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figfinetuningV-npv
 #| fig-cap: 2. Feintuning des Random Forest Modells für die EP Befunde Basis NPV
 #| 
 res.RF <- readRDS("EP50_resRF.rds")
@@ -907,7 +907,7 @@ res.RF |>
 ```
 
 #### Auswahl des besten Modells {.justify}
-```{r bestmodelRFIVauc, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r bestmodelRFVauc, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 regular.res <- readRDS("EP50_resRF.rds")
 best.auc <- select_best(regular.res, metric = "roc_auc")
 best.auc
@@ -919,7 +919,7 @@ saveRDS(final.rf, "final_EP50_rf_auc.rds")
 final.rf
 ```
 
-```{r bestmodelRFIVnpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r bestmodelRFVnpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 regular.res <- readRDS("EP50_resRF.rds")
 best.npv <- select_best(regular.res, metric = "npv")
 best.npv
@@ -932,6 +932,268 @@ final.rf.npv
 ```
 
 
+### Random Forest VI {.justify}
+- Klassifizierung: durch autoencoder trainiert mit unauffälligen EP & iFix Befunden
+- Klassen: unauffällig, Suspicous
+- Features: y, m, fdd
+
+#### Fine-Tuning {.justify}
+```{r finetuningVI grid, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(tidymodels)
+all.data.training <- readRDS("all_data_training.rds")
+
+
+# recipe building
+EP.rec <- 
+  recipe(Classification ~ ., data = all.data.training) |>
+  update_role(ID, new_role = "ID") 
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(all.data.training, v = 5)
+EPfolds
+
+rf.grid <- grid_regular(
+  mtry(range = c(5, 40)),
+  min_n(range = c(3, 15)),
+  levels = 8
+)
+
+rf.grid
+```
+#### Tune Spezifikationen und Workflow 
+
+```{r specs finetuning VI, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# tune setting
+tune.spec <- rand_forest(
+  mtry = tune(),
+  trees = 1000,
+  min_n = tune()
+) |> 
+  set_mode("classification")  |> 
+  set_engine("ranger", num.threads = 2)
+
+#tune.spec
+
+# workflow
+tune.wf <- workflow() |>
+  add_recipe(EP.rec) |>
+  add_model(tune.spec)
+
+tune.wf
+
+
+
+
+``` 
+
+```{r finetuningVI, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(future)
+
+plan(multisession, workers = 5)
+
+set.seed(8173)
+res.RF <- tune_grid(
+  tune.wf,
+  resamples = EPfolds,
+  metrics = metric_set(roc_auc, sens, spec, npv),
+  grid = rf.grid,
+  parallel_over = "resamples",
+  control = control_grid(verbose = TRUE)
+)
+
+plan(sequential)
+
+saveRDS(res.RF, "all_data_resRF.rds")
+
+```
+
+```{r figfinetuning VI, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figfinetuningIV
+#| fig-cap: Feintuning des Random Forest Modells für die H2O-Klassifizierung mit m, fdd & AUC
+#| 
+res.RF <- readRDS("all_data_resRF.rds")
+res.RF |>
+  collect_metrics() |>
+  filter(.metric == "roc_auc") |>
+  mutate(min_n = factor(min_n)) |>
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "AUC")
+```
+
+```{r figfinetuning VInpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figfinetuningVI-npv
+#| fig-cap: Feintuning des Random Forest Modells für die H2O Klassifizierung Basis NPV
+#| 
+res.RF <- readRDS("all_data_resRF.rds")
+res.RF |>
+  collect_metrics() |>
+  filter(.metric == "npv") |>
+  mutate(min_n = factor(min_n)) |>
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "NPV")
+```
+
+#### Auswahl des besten Modells {.justify}
+```{r bestmodelRFVIauc, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+regular.res <- readRDS("all_data_resRF.rds")
+best.auc <- select_best(regular.res, metric = "roc_auc")
+best.auc
+
+final.rf <- finalize_model(tune.spec, best.auc)
+
+saveRDS(final.rf, "final_all_data_rf_auc.rds")
+
+final.rf
+```
+
+```{r bestmodelRFIVnpv, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+regular.res <- readRDS("all_data_resRF.rds")
+best.npv <- select_best(regular.res, metric = "npv")
+best.npv
+
+final.rf.npv <- finalize_model(tune.spec, best.npv)
+
+saveRDS(final.rf.npv, "final_all_data_rf_npv.rds")
+
+final.rf.npv
+```
+
+
+### Random Forest VII {.justify}
+- Klassifizierung: durch autoencoder trainiert mit unauffälligen EP & iFix, und auch M-Gradient & M-Ptoein positiven Befunden
+- Klassen: unauffällig, Suspicous, M-Gradient
+- Features: y, m, fdd
+
+#### Fine-Tuning {.justify}
+```{r finetuningVII grid, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+library(tidymodels)
+all.data.training <- readRDS("all_data_mgrad_training.rds")
+
+
+# recipe building
+EP.rec <- 
+  recipe(Class ~ ., data = all.data.training) |>
+  update_role(ID, new_role = "ID") 
+
+# cross validation data setting
+set.seed(8173)
+EPfolds <- vfold_cv(all.data.training, v = 5)
+EPfolds
+
+rf.grid <- grid_regular(
+  mtry(range = c(5, 40)),
+  min_n(range = c(3, 15)),
+  levels = 8
+)
+
+rf.grid
+```
+#### Tune Spezifikationen und Workflow 
+
+```{r specs finetuning VII, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+# tune setting
+tune.spec <- rand_forest(
+  mtry = tune(),
+  trees = 1000,
+  min_n = tune()
+) |> 
+  set_mode("classification")  |> 
+  set_engine("ranger", num.threads = 2)
+
+#tune.spec
+
+# workflow
+tune.wf <- workflow() |>
+  add_recipe(EP.rec) |>
+  add_model(tune.spec)
+
+tune.wf
+
+
+
+
+``` 
+
+```{r finetuningVII, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(future)
+
+plan(multisession, workers = 5)
+
+set.seed(8173)
+res.RF <- tune_grid(
+  tune.wf,
+  resamples = EPfolds,
+  metrics = metric_set(roc_auc, sens, spec, npv),
+  grid = rf.grid,
+  parallel_over = "resamples",
+  control = control_grid(verbose = TRUE)
+)
+
+plan(sequential)
+
+saveRDS(res.RF, "all_data_mgrad_resRF.rds")
+
+```
+
+```{r figfinetuning VII, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figfinetuningIV
+#| fig-cap: Feintuning des Random Forest Modells für die H2O-Klassifizierung mit m, fdd & AUC
+#| 
+res.RF <- readRDS("all_data_mgrad_resRF.rds")
+res.RF |>
+  collect_metrics() |>
+  filter(.metric == "roc_auc") |>
+  mutate(min_n = factor(min_n)) |>
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "AUC")
+```
+
+```{r figfinetuning VIInpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: figfinetuningVII-npv
+#| fig-cap: Feintuning des Random Forest Modells für die H2O Klassifizierung Basis NPV
+#| 
+res.RF <- readRDS("all_data_mgrad_resRF.rds")
+res.RF |>
+  collect_metrics() |>
+  filter(.metric == "npv") |>
+  mutate(min_n = factor(min_n)) |>
+  ggplot(aes(mtry, mean, color = min_n)) +
+  geom_line(alpha = 0.5, size = 1.5) +
+  geom_point() +
+  labs(y = "NPV")
+```
+
+#### Auswahl des besten Modells {.justify}
+```{r bestmodelRFVIIauc, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+regular.res <- readRDS("all_data_mgrad_resRF.rds")
+best.auc <- select_best(regular.res, metric = "roc_auc")
+best.auc
+
+final.rf <- finalize_model(tune.spec, best.auc)
+
+saveRDS(final.rf, "final_all_data_mgrad_rf_auc.rds")
+
+final.rf
+```
+
+```{r bestmodelRFIVnpv, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+regular.res <- readRDS("all_data_mgrad_resRF.rds")
+best.npv <- select_best(regular.res, metric = "npv")
+best.npv
+
+final.rf.npv <- finalize_model(tune.spec, best.npv)
+
+saveRDS(final.rf.npv, "final_all_data_mgrad_rf_npv.rds")
+
+final.rf.npv
+```
 
 
 
