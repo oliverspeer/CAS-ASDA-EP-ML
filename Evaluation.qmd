@@ -1054,7 +1054,7 @@ rf.res |>
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-rfV-npv-conf-mat-plot
+#| label: fig-rfVI-npv-conf-mat-plot
 #| fig-cap: Confusion Matrix des Random Forrest V für NPV
 rf.res |> 
   collect_predictions() |>  
@@ -1349,8 +1349,8 @@ rf.res |>
 ```
 
 
-## Random Forrest VII mit EP Befund-Text-Klassifikation nach NPV getuned {.justify}
-50 autoencoder selektierte Features  und Klassifikation nach manuel bereinigten EP-Befunden
+## Random Forrest VIII mit EP Befund-Text-Klassifikation nach NPV getuned {.justify}
+autoencoder mit allen Features  und Klassifikation in "unauffällig", "M-Gradient" & "suspicious"
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Daten einlesen
 #EPtraining <- readRDS("EPBtraining.rds")
@@ -1414,7 +1414,7 @@ saveRDS(rf.res, "rf_allf_data_mgrad_npv_res.rds")
 ### Metriken {.justify}
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: tab-metrics-rfVII-npv
+#| label: tab-metrics-rfVIII-npv
 #| tbl-cap: Metriken des Random Forrest VI für NPV
 rf.res <- readRDS("rf_allf_data_mgrad_npv_res.rds")
 rf.res |> 
@@ -1434,7 +1434,7 @@ rf.res |>
 
 
 ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: fig-rfVII-npv-conf-mat-plot
+#| label: fig-rfVIII-npv-conf-mat-plot
 #| fig-cap: Confusion Matrix des Random Forrest VII für NPV
 rf.res |> 
   collect_predictions() |>  
