@@ -1222,7 +1222,7 @@ Dies erlaubt dann evtl weiter Möglichkeiten über das vorliegende Projekt hinau
 
 ## Integrieren und formatieren von Daten {.justify}
 
-::: {.panel-tabset}
+<!-- ::: {.panel-tabset} -->
 
 ### Generieren der Steigungen m, Ableitungen fdd, und Flächen AUC und Speichern der Daten {.justify}
 
@@ -1900,7 +1900,7 @@ saveRDS(dev.man.EP.all, "dev_man_EP_all.rds")
 
 
 ### h2o-Workflow {.justify}
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 library(h2o)
 h2o.init(nthreads = 10, max_mem_size = "56G")
 
@@ -1909,23 +1909,28 @@ dat_h2o <- readRDS("sub_norm.rds") |>
   #filter(EPKlasse == "unauffällig") |>
   select(EP.y1:EP.y300) |> 
   as.h2o()
+```
 
-
-dat_susp_h2o <- readRDS("dev_man_EP_all.rds") |> 
-  filter(EPKlasse == "suspicous") |>
-  select(-ID, -EPKlasse, -AUC300) |> 
-  as.h2o()
+### Autoencoder Training mit unauffälligen EPs & unauffälligen iFix
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# dat_susp_h2o <- readRDS("dev_man_EP_all.rds") |> 
+#   filter(EPKlasse == "suspicous") |>
+#   select(-ID, -EPKlasse, -AUC300) |> 
+#   as.h2o()
 
 
 # Hyperparameter für die Grid Search
 hyper_params <- list(
-  hidden = list(c(128, 64, 128), 
+  hidden = list(c(128, 64, 128)#, 
                 #c(64, 32, 64), 
                 #c(256, 128, 256),
-                c(512, 256, 512)
+                #c(512, 256, 512)
                 ),  # Verschiedene Layer-Architekturen
   activation = c("Tanh"),            # Verschiedene Aktivierungsfunktionen
-  l1 = c(1e-6, 1e-5, 1e-4),                                         # L1-Regularisierung
+  l1 = c(#1e-6, 
+         1e-5#, 
+         #1e-4
+         ),                                         # L1-Regularisierung
   epochs = c(50)                                               # Unterschiedliche Epochen
 )
 
@@ -1940,12 +1945,12 @@ grid <- h2o.grid(
   seed = 8173                      # Reproduzierbarkeit
 )
 
-# grid_performance <- h2o.getGrid(
-#   grid_id = "autoencoder_grid",
-#   sort_by = "mse",
-#   decreasing = FALSE
-# )
-# print(grid_performance)
+grid_performance <- h2o.getGrid(
+  grid_id = "autoencoder_grid",
+  sort_by = "mse",
+  decreasing = FALSE
+)
+print(grid_performance)
 # 
 # failed_models <- grid_performance@failed_params
 # print(failed_models)
@@ -1971,11 +1976,11 @@ saveRDS(best_model, "best_h2o_model.rds")
 
 
 
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-h2o-model_summary
 #| fig-cap: Zusammenfassung des besten h2o-Modells
 library(h2o)
-readRDS("best_h2o_model.rds")
+best_model <- readRDS("best_h2o_model.rds")
 
 summary(best_model)
 
@@ -1989,7 +1994,7 @@ reconstruction_error_unauf <- as.data.frame(h2o.anomaly(best_model, dat_h2o, per
 ```
 
 #### Schwellenwert für die Anomalieerkennung festlegen
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: fig-reconstruction_error
 #| fig-cap: unauffällige ChromatogrammeRekonstruktionsfehler und 97.5%-Quantil
 
@@ -1999,15 +2004,17 @@ abline(v = quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.975), col =
 ```
 
 #### Klassifizierung aller Chromatogramme mittels Schwellenwert für die Anomalieerkennung in "unauffällig" und "suspicious"
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # Rekonstruktionsfehler für alle Chromatogramme berechnen
 all.data.h2o <- readRDS("all_data.rds") |> 
   select(EP.y1:EP.y300) |> 
   as.h2o()
 
 reconstruction_error <- as.data.frame(h2o.anomaly(best_model, all.data.h2o, per_feature = FALSE))
+```
 
 
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # Schwellenwert für die Anomalieerkennung
 threshold <- quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.975)
 
@@ -2027,16 +2034,20 @@ all.data <- all.data |>
 
 #### Klassifizierung in "unuaffällig", "M-Gradient" und "suspicious"
 ##### Rekonstruktionsfehler für M-Gradienten berechnen
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 sub.mgrad <- read_csv("sub_mgrad.csv")
 
-mgrad.h2o <- all_data |> 
+mgrad.h2o <- readRDS("all_data.rds") |> 
   filter(ID %in% sub.mgrad$ID) |> 
   select(EP.y1:EP.y300) |>
   as.h2o()
 
-reconstruction_error_mgrad <- as.data.frame(h2o.anomaly(best_model, mgrad.h2o, per_feature = FALSE))
+all.h2o <- readRDS("all_data.rds") |> 
+  select(EP.y1:EP.y300) |> 
+  as.h2o()
 
+reconstruction_error_mgrad <- as.data.frame(h2o.anomaly(best_model, mgrad.h2o, per_feature = FALSE))
+reconstruction_error_all <- as.data.frame(h2o.anomaly(best_model, all.h2o, per_feature = FALSE))
 ```
 
 ##### Schwellenwert für die Anomalieerkennung festlegen
@@ -2054,9 +2065,7 @@ library(ggplot2)
 # Daten vorbereiten
 reconstruction_error_unauf$Group <- "Unauffällig"
 reconstruction_error_mgrad$Group <- "M-Gradient"
-reconstruction_error_all <- all_data |> 
-  select(Reconstruction.MSE) |> 
-  mutate(Group = "Alle")
+reconstruction_error_all$Group <- "Alle" 
 
 # Beide Datensätze kombinieren
 data_combined <- rbind(reconstruction_error_unauf, reconstruction_error_mgrad, reconstruction_error_all)
@@ -2108,14 +2117,19 @@ all_data <- all_data |>
 library(h2o)
 h2o.shutdown(prompt = FALSE)
 h2o.init(nthreads = 10, max_mem_size = "56G")
+```
 
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # Import und Vorbereiten der Daten
 dat_h2o <- readRDS("sub_norm.rds") |> 
   #filter(EPKlasse == "unauffällig") |>
   select(EP.y1:AUC300) |> 
   as.h2o()
+```
 
 
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # dat_susp_h2o <- readRDS("dev_man_EP_all.rds") |> 
 #   filter(EPKlasse == "suspicous") |>
 #   select(-ID, -EPKlasse, -AUC300) |> 
@@ -2178,16 +2192,16 @@ saveRDS(best_model, "allf_best_h2o_model.rds")
 
 
 ```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-#| label: fig-h2o-model_summary
+#| label: fig-h2o-model_summaryII
 #| fig-cap: Zusammenfassung des besten h2o-Modells
 library(h2o)
-readRDS("best_h2o_model.rds")
+best_model <- readRDS("allf_best_h2o_model.rds")
 
 summary(best_model)
 
 ```
 #### Rekonstruktionsfehler berechnen 
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # Rekonstruktionsfehler pro feature berechnen
 reconstruction_error_unauf <- as.data.frame(h2o.anomaly(best_model, dat_h2o, per_feature = FALSE))
 # reconstruction_error_susp <- as.data.frame(h2o.anomaly(best_model, dat_susp_h2o, per_feature = TRUE))
@@ -2205,15 +2219,17 @@ abline(v = quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.975), col =
 ```
 
 #### Klassifizierung aller Chromatogramme mittels Schwellenwert für die Anomalieerkennung in "unauffällig" und "suspicious"
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 # Rekonstruktionsfehler für alle Chromatogramme berechnen
 all.data.h2o <- readRDS("all_data.rds") |> 
   select(EP.y1:AUC300) |> 
   as.h2o()
 
 reconstruction_error <- as.data.frame(h2o.anomaly(best_model, all.data.h2o, per_feature = FALSE))
+```
 
 
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 # # Schwellenwert für die Anomalieerkennung
 # threshold <- quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.975)
 # 
@@ -2233,7 +2249,7 @@ reconstruction_error <- as.data.frame(h2o.anomaly(best_model, all.data.h2o, per_
 
 #### Klassifizierung in "unuaffällig", "M-Gradient" und "suspicious"
 ##### Rekonstruktionsfehler für M-Gradienten berechnen
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 sub.mgrad <- read_csv("sub_mgrad.csv")
 
 mgrad.h2o <- readRDS("all_data.rds") |> 
@@ -2251,8 +2267,8 @@ reconstruction_error_all <- as.data.frame(h2o.anomaly(best_model, all.h2o, per_f
 ```
 
 ##### Schwellenwert für die Anomalieerkennung festlegen
-```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
-#| label: fig-reconstruction_error_mgrad
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: fig-reconstruction_error_mgradII
 #| fig-cap: Rekonstruktionsfehler für M-Gradienten und 97.5%-Quantil
 
 # hist(reconstruction_error_mgrad$Reconstruction.MSE, breaks = 50, main = "Rekonstruktionsfehler (M-Gradient)")
@@ -2312,6 +2328,52 @@ all_data <- readRDS( "all_data.rds" ) |>
   select(ClassAll, everything())
 ```
 
+### Vergleich der Klassifizierungen {.justify}
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-class_comparison
+#| tbl-cap: Vergleich der Klassifizierungen (autencoder mit y)
+
+class_comparison <- readRDS("all_data_mgrad_validation.rds") |> 
+  select(Class) |> 
+  count(Class) |> 
+  mutate(Percentage = round(n / sum(n) * 100, 0)) |>  # Berechnung der relativen Häufigkeit
+  flextable() |>
+  width(j = 1, width = 3.5)
+class_comparison
+
+```
+
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-class_comparison-allf
+#| tbl-cap: Vergleich der Klassifizierungen (autoencoder mit allen features)
+
+class_comparison <- readRDS("allf_data_mgrad_validation.rds") |> 
+  select(ClassAll) |> 
+  count(ClassAll) |> 
+  mutate(Percentage = round(n / sum(n) * 100, 0)) |>  # Berechnung der relativen Häufigkeit
+  flextable() |>
+  width(j = 1, width = 3.5)
+class_comparison
+
+```
+```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+#| label: tbl-class_comparison-gpt
+#| tbl-cap: Vergleich der Klassifizierungen (gpt)
+
+
+class_comparison <- readRDS("GPT_validation.rds") |> 
+  select(Classification) |> 
+  count(Classification) |> 
+  mutate(Percentage = round(n / sum(n) * 100, 0)) |>  # Berechnung der relativen Häufigkeit
+  flextable() |>
+  width(j = 1, width = 3.5) #|> 
+  #colformat_num(j = "Percentage", digits = 2) |> # Formatierung der Prozentwerte
+  #set_header_labels(n = "Count", Percentage = "Percentage (%)") # Spaltenüberschriften anpassen
+
+class_comparison
+
+```
 
 
 <!-- #### Vergleiche der Fehler pro feature -->
