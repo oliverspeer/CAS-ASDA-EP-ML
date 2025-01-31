@@ -2102,6 +2102,218 @@ all_data <- all_data |>
   ) |> 
   select(Class, everything())
 ```
+
+### h2o-Workflow mit allen features {.justify}
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+library(h2o)
+h2o.shutdown(prompt = FALSE)
+h2o.init(nthreads = 10, max_mem_size = "56G")
+
+# Import und Vorbereiten der Daten
+dat_h2o <- readRDS("sub_norm.rds") |> 
+  #filter(EPKlasse == "unauffällig") |>
+  select(EP.y1:AUC300) |> 
+  as.h2o()
+
+
+# dat_susp_h2o <- readRDS("dev_man_EP_all.rds") |> 
+#   filter(EPKlasse == "suspicous") |>
+#   select(-ID, -EPKlasse, -AUC300) |> 
+#   as.h2o()
+
+
+# Hyperparameter für die Grid Search
+hyper_params <- list(
+  hidden = list(c(128, 64, 128), 
+                c(64, 32, 64)#, 
+                #c(256, 128, 256)#,
+                #c(512, 256, 512)
+                ),  # Verschiedene Layer-Architekturen
+  activation = c("Tanh"),            # Verschiedene Aktivierungsfunktionen
+  l1 = c(1e-5, 1e-6),                                         # L1-Regularisierung
+  epochs = c(50#, 100
+             )                                               # Unterschiedliche Epochen
+)
+
+# Grid Search ausführen
+grid <- h2o.grid(
+  algorithm = "deeplearning",      # Deep Learning Modell
+  grid_id = "autoencoder_grid",    # ID der Grid Search
+  x = names(dat_h2o),              # Features
+  training_frame = dat_h2o,        # Trainingsdaten
+  autoencoder = TRUE,              # Aktiviert den Autoencoder-Modus
+  hyper_params = hyper_params,     # Hyperparameter-Liste
+  seed = 8173                      # Reproduzierbarkeit
+)
+
+grid_performance <- h2o.getGrid(
+  grid_id = "autoencoder_grid",
+  sort_by = "mse",
+  decreasing = FALSE
+)
+print(grid_performance)
+# 
+# failed_models <- grid_performance@failed_params
+# print(failed_models)
+
+best_model <- h2o.getModel(grid_performance@model_ids[[1]])
+
+
+saveRDS(best_model, "allf_best_h2o_model.rds")
+
+
+# Autoencoder-Modell
+# autoencoder_h2o <- h2o.deeplearning(
+#   x = names(dat_h2o),  # Alle Features
+#   training_frame = dat_h2o,
+#   autoencoder = TRUE,  # Aktiviert den Autoencoder-Modus
+#   hidden = c(128, 64, 128),  # Architektur: Encoder- und Decoder-Schichten
+#   activation = "Tanh",  # Aktivierungsfunktion
+#   epochs = 50,          # Anzahl der Epochen
+#   l1 = 1e-5,            # Regularisierung (optional)
+#   seed = 8173            # Reproduzierbarkeit
+# )
+```
+
+
+
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-h2o-model_summary
+#| fig-cap: Zusammenfassung des besten h2o-Modells
+library(h2o)
+readRDS("best_h2o_model.rds")
+
+summary(best_model)
+
+```
+#### Rekonstruktionsfehler berechnen 
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Rekonstruktionsfehler pro feature berechnen
+reconstruction_error_unauf <- as.data.frame(h2o.anomaly(best_model, dat_h2o, per_feature = FALSE))
+# reconstruction_error_susp <- as.data.frame(h2o.anomaly(best_model, dat_susp_h2o, per_feature = TRUE))
+
+```
+
+#### Schwellenwert für die Anomalieerkennung festlegen
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-allf-reconstruction_error
+#| fig-cap: unauffällige ChromatogrammeRekonstruktionsfehler mit y, m und fdd und 97.5%-Quantil
+
+
+hist(reconstruction_error_unauf$Reconstruction.MSE, breaks = 50, main = "Rekonstruktionsfehler (unauffällig)")
+abline(v = quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.975), col = "red")
+```
+
+#### Klassifizierung aller Chromatogramme mittels Schwellenwert für die Anomalieerkennung in "unauffällig" und "suspicious"
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Rekonstruktionsfehler für alle Chromatogramme berechnen
+all.data.h2o <- readRDS("all_data.rds") |> 
+  select(EP.y1:AUC300) |> 
+  as.h2o()
+
+reconstruction_error <- as.data.frame(h2o.anomaly(best_model, all.data.h2o, per_feature = FALSE))
+
+
+# # Schwellenwert für die Anomalieerkennung
+# threshold <- quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.975)
+# 
+# # Einbinden der Rekonstruktionsfehler in das DataFrame all.data und Klassifizierung
+# all.data <- all.data |> 
+#   mutate(reconstruction.MSE = reconstruction_error$Reconstruction.MSE) |> 
+#   mutate(
+#     Classification = case_when(
+#       reconstruction_error > threshold ~ "suspicous",
+#       TRUE ~ "unauffällig"
+#     ) |> 
+#     as.factor()
+#   )
+
+
+```
+
+#### Klassifizierung in "unuaffällig", "M-Gradient" und "suspicious"
+##### Rekonstruktionsfehler für M-Gradienten berechnen
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+sub.mgrad <- read_csv("sub_mgrad.csv")
+
+mgrad.h2o <- readRDS("all_data.rds") |> 
+  filter(ID %in% sub.mgrad$ID) |> 
+  select(EP.y1:AUC300) |>
+  as.h2o()
+
+all.h2o <- readRDS("all_data.rds") |> 
+  #filter(ID %in% sub.mgrad$ID) |> 
+  select(EP.y1:AUC300) |>
+  as.h2o()
+
+reconstruction_error_mgrad <- as.data.frame(h2o.anomaly(best_model, mgrad.h2o, per_feature = FALSE))
+reconstruction_error_all <- as.data.frame(h2o.anomaly(best_model, all.h2o, per_feature = FALSE))
+```
+
+##### Schwellenwert für die Anomalieerkennung festlegen
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+#| label: fig-reconstruction_error_mgrad
+#| fig-cap: Rekonstruktionsfehler für M-Gradienten und 97.5%-Quantil
+
+# hist(reconstruction_error_mgrad$Reconstruction.MSE, breaks = 50, main = "Rekonstruktionsfehler (M-Gradient)")
+# abline(v = quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.975), col = "red")
+# abline(v = quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.025), col = "red")
+
+
+library(ggplot2)
+
+# Daten vorbereiten
+reconstruction_error_unauf$Group <- "Unauffällig"
+reconstruction_error_mgrad$Group <- "M-Gradient"
+reconstruction_error_all$Group <- "Alle"
+
+# Beide Datensätze kombinieren
+data_combined <- rbind(reconstruction_error_unauf, reconstruction_error_mgrad, reconstruction_error_all)
+
+# Dichtekurven plotten
+ggplot(data_combined, aes(x = Reconstruction.MSE, color = Group, fill = Group)) +
+  geom_density(alpha = 0.3) +  # Dichtekurven zeichnen, mit Transparenz
+  scale_x_log10() +           # Logarithmische x-Achse
+  geom_vline(data = data.frame(
+    Group = c("Unauffällig", "Unauffällig", "M-Gradient", "M-Gradient"),
+    Quantile = c(
+      quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.985),
+      quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.015),
+      quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.985),
+      quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.015)
+    )
+  ), 
+  aes(xintercept = Quantile, color = Group), linetype = "dashed") +  # Quantile als gestrichelte Linien
+  labs(
+    title = "Dichtekurven der Rekonstruktionsfehler",
+    x = "Reconstruction MSE (log-Skala)",
+    y = "Dichte"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top")
+
+
+
+```
+
+##### Klassifizierung mithilfe der Rekonstruktionsfehler in "unauffällig", "M-Gradient" und "suspicious" nach training mit allen features
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Klassifizierung in "unauffällig", "M-Gradient" und "suspicous"
+all_data <- readRDS( "all_data.rds" ) |> 
+   mutate(
+    ClassAll = case_when(
+      Reconstruction.MSE >= quantile(reconstruction_error_mgrad$Reconstruction.MSE, 0.015) &
+        Reconstruction.MSE <= quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.985) ~ "suspicous",
+      Reconstruction.MSE > quantile(reconstruction_error_unauf$Reconstruction.MSE, 0.985) ~ "M-Gradient",
+      TRUE ~ "unauffällig"
+    ) |> 
+    as.factor()
+  ) |> 
+  select(ClassAll, everything())
+```
+
+
+
 <!-- #### Vergleiche der Fehler pro feature -->
 <!-- ```{r, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE} -->
 <!-- mean_error_unauf <- colMeans(reconstruction_error_unauf) -->
@@ -2184,7 +2396,22 @@ saveRDS(all.data.mgrad.validation, "all_data_mgrad_validation.rds")
 
 ```
 
+### Trainingsdaten mgrad mit allen features speichern
+```{r, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+# Trainingsdaten speichern
+all.data.mgrad.split <- all_data |> 
+  select(ID, ClassAll, EP.y1:fdd300) |>
+  initial_validation_split(prop = c(0.6, 0.2), strata = ClassAll)
 
+saveRDS(all.data.mgrad.split, "allf_data_mgrad_split.rds")
+
+all.data.mgrad.training <- training(all.data.mgrad.split)
+saveRDS(all.data.mgrad.training, "allf_data_mgrad_training.rds")
+
+all.data.mgrad.validation <- validation(all.data.mgrad.split)
+saveRDS(all.data.mgrad.validation, "allf_data_mgrad_validation.rds")
+
+```
 
 
 #### top 50 features mit größter Differenz extrahieren und Trainingsdaten speichern
