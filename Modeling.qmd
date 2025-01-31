@@ -745,7 +745,7 @@ saveRDS(res.RF, "GPT_resRF.rds")
 ```
 
 ```{r figfinetuning IV, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: figfinetuningIV
+#| label: figfinetuningIVauc
 #| fig-cap: Feintuning des Random Forest Modells für die EP Befunde mit m, fdd & AUC
 #| 
 res.RF <- readRDS("GPT_resRF.rds")
@@ -877,7 +877,7 @@ saveRDS(res.RF, "EP50_resRF.rds")
 ```
 
 ```{r figfinetuning V, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: figfinetuningIV
+#| label: figfinetuningV
 #| fig-cap: Feintuning des Random Forest Modells für die EP Befunde mit m, fdd & AUC
 #| 
 res.RF <- readRDS("EP50_resRF.rds")
@@ -1009,7 +1009,7 @@ saveRDS(res.RF, "all_data_resRF.rds")
 ```
 
 ```{r figfinetuning VI, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: figfinetuningIV
+#| label: figfinetuningVI
 #| fig-cap: Feintuning des Random Forest Modells für die H2O-Klassifizierung mit m, fdd & AUC
 #| 
 res.RF <- readRDS("all_data_resRF.rds")
@@ -1051,7 +1051,7 @@ saveRDS(final.rf, "final_all_data_rf_auc.rds")
 final.rf
 ```
 
-```{r bestmodelRFIVnpv, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r bestmodelRFVInpv, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 regular.res <- readRDS("all_data_resRF.rds")
 best.npv <- select_best(regular.res, metric = "npv")
 best.npv
@@ -1141,7 +1141,7 @@ saveRDS(res.RF, "all_data_mgrad_resRF.rds")
 ```
 
 ```{r figfinetuning VII, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
-#| label: figfinetuningIV
+#| label: figfinetuningVII
 #| fig-cap: Feintuning des Random Forest Modells für die H2O-Klassifizierung mit m, fdd & AUC
 #| 
 res.RF <- readRDS("all_data_mgrad_resRF.rds")
@@ -1183,7 +1183,7 @@ saveRDS(final.rf, "final_all_data_mgrad_rf_auc.rds")
 final.rf
 ```
 
-```{r bestmodelRFIVnpv, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r bestmodelRFVIInpv, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 regular.res <- readRDS("all_data_mgrad_resRF.rds")
 best.npv <- select_best(regular.res, metric = "npv")
 best.npv
@@ -1287,7 +1287,7 @@ res.RF |>
   labs(y = "AUC")
 ```
 
-```{r figfinetuning VIInpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r figfinetuning VIIInpv, echo=TRUE, eval=TRUE, message=FALSE, warning=FALSE}
 #| label: figfinetuningVIII-npv
 #| fig-cap: Feintuning des Random Forest Modells für die H2O Klassifizierung Basis NPV
 #| 
@@ -1303,7 +1303,7 @@ res.RF |>
 ```
 
 #### Auswahl des besten Modells {.justify}
-```{r bestmodelRFVIIauc, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r bestmodelRFVIIIauc, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 regular.res <- readRDS("all_data_mgrad_resRF.rds")
 best.auc <- select_best(regular.res, metric = "roc_auc")
 best.auc
@@ -1315,7 +1315,7 @@ saveRDS(final.rf, "final_allf_data_mgrad_rf_auc.rds")
 final.rf
 ```
 
-```{r bestmodelRFIVnpv, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
+```{r bestmodelRFVIIInpv, echo=TRUE, eval=FALSE, message=FALSE, warning=FALSE}
 regular.res <- readRDS("all_data_mgrad_resRF.rds")
 best.npv <- select_best(regular.res, metric = "npv")
 best.npv
